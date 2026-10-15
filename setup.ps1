@@ -9,6 +9,7 @@
   4. Crea los certificados HTTPS locales con mkcert (los móviles solo usan el micrófono con HTTPS).
 
   Se puede volver a ejecutar sin problema: lo que ya está instalado se salta.
+  Lo que instala por primera vez queda apuntado en .setup-state para que uninstall.cmd lo quite.
 
 .PARAMETER NoProcessing
   No instala el procesado de canciones (PyTorch, Demucs, Whisper: varios GB).
@@ -31,6 +32,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-Location -LiteralPath $PSScriptRoot
+$StateFile = Join-Path $PSScriptRoot ".setup-state"
 
 function Write-Step([string]$Text) {
     Write-Host ""
@@ -64,6 +66,26 @@ function Test-Command([string]$Name) {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+# --- .setup-state: what this script added to the computer (read by uninstall.ps1) ---
+
+function Get-State {
+    if (Test-Path -LiteralPath $StateFile) { return @(Get-Content -LiteralPath $StateFile -Encoding UTF8) }
+    return @()
+}
+
+function Add-State([string]$Line) {
+    if ($DryRun) { return }
+    if ((Get-State) -notcontains $Line) {
+        Add-Content -LiteralPath $StateFile -Value $Line -Encoding UTF8
+    }
+}
+
+function Get-CacheDirs {
+    $hf = if ($env:HF_HOME) { $env:HF_HOME } else { Join-Path $env:USERPROFILE ".cache\huggingface" }
+    $torch = if ($env:TORCH_HOME) { $env:TORCH_HOME } else { Join-Path $env:USERPROFILE ".cache\torch" }
+    return @($hf, $torch)
+}
+
 function Install-Tool([string]$Command, [string]$WingetId, [string]$Label, [string]$Url) {
     if (Test-Command $Command) {
         Write-Ok "$Label ya está instalado"
@@ -75,6 +97,7 @@ function Install-Tool([string]$Command, [string]$WingetId, [string]$Label, [stri
     Write-Host "    Instalando $Label..."
     Invoke-Checked "winget" @("install", "--id", $WingetId, "--exact", "--silent",
         "--accept-source-agreements", "--accept-package-agreements")
+    Add-State "tool winget:$WingetId"
     Update-SessionPath
     if (-not $DryRun -and -not (Test-Command $Command)) {
         throw "$Label se instaló pero no aparece en el PATH. Cierra esta ventana, abre otra y vuelve a ejecutar setup."
@@ -83,6 +106,14 @@ function Install-Tool([string]$Command, [string]$WingetId, [string]$Label, [stri
 
 try {
     if ($DryRun) { Write-Warn "Modo prueba (-DryRun): no se instala ni se cambia nada." }
+
+    # The app downloads its models later: remember which caches did not exist before the first setup.
+    if ((Get-State) -notcontains "caches-recorded") {
+        foreach ($dir in Get-CacheDirs) {
+            if (-not (Test-Path -LiteralPath $dir)) { Add-State "cache-new $dir" }
+        }
+        Add-State "caches-recorded"
+    }
 
     Write-Step "Herramientas del sistema"
     Install-Tool "uv" "astral-sh.uv" "uv (Python)" "https://docs.astral.sh/uv/"
@@ -106,6 +137,10 @@ try {
 
     if (-not $NoCerts) {
         Write-Step "Certificados HTTPS"
+        if (-not $DryRun) {
+            $caroot = (& mkcert -CAROOT).Trim()
+            if (-not (Test-Path -LiteralPath (Join-Path $caroot "rootCA.pem"))) { Add-State "ca-created" }
+        }
         Write-Host "    mkcert instalará una autoridad local de confianza (Windows puede pedir confirmación)."
         Invoke-Checked "mkcert" @("-install")
         Invoke-Checked "uv" @("run", "python", "scripts/make_certs.py")
@@ -122,6 +157,7 @@ try {
     } else {
         Write-Ok "Abre http://127.0.0.1:8000/ en el portátil (sin HTTPS los móviles no podrán usar el micrófono)."
     }
+    Write-Ok "Para desinstalarlo todo: uninstall.cmd"
 } catch {
     Write-Host ""
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red

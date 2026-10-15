@@ -20,6 +20,21 @@ Opciones:
 Después: `uv run python -m server` y abre `https://127.0.0.1:8000/`. Las secciones siguientes explican cada paso por
 si prefieres hacerlo a mano.
 
+### Desinstalar
+
+**Windows:** `uninstall.cmd`. **macOS / Linux:** `./uninstall.sh`.
+
+Quita solo lo que no tenías antes: el script de instalación apunta en `.setup-state` qué herramientas instaló, si
+creó la autoridad de certificados de mkcert y qué cachés de modelos no existían, y el desinstalador deshace
+exactamente eso (incluidas las cachés de uv y npm si fue setup quien instaló uv o Node). Además borra `.venv`,
+`node_modules`, `web/dist` y `certs`. Antes de borrar enseña la lista y pide confirmación.
+
+| Windows | macOS / Linux | Para qué |
+|---|---|---|
+| `-RemoveData` | `--remove-data` | Borra también `data/` (canciones importadas, pistas procesadas, sesión de Spotify) |
+| `-Yes` | `--yes` | No pide confirmación |
+| `-DryRun` | `--dry-run` | Solo muestra lo que haría |
+
 ## Requisitos
 
 - Python 3.11+ y [uv](https://docs.astral.sh/uv/)
