@@ -6,6 +6,14 @@ import { runClockSync } from "../shared/sync";
 import type { MicToServer, PitchFrame, Player, ServerToMic } from "../shared/types";
 import { Socket } from "../shared/ws";
 import { type CapturedFrame, MicCapture, ScreenWakeLock } from "./capture";
+import {
+  BEAT_MS,
+  detectOnsets,
+  estimateLatency,
+  LEAD_IN_BEATS,
+  type LevelSample,
+  MEASURED_BEATS,
+} from "./latency";
 import { hzToMidi, midiToName } from "./yin";
 
 const COLORS = ["#ff4f9a", "#4fd8ff", "#4ade80", "#fbbf24", "#a78bfa", "#fb7185", "#f97316", "#2dd4bf"];
@@ -100,6 +108,7 @@ class MicSession {
   private gate = DEFAULT_GATE;
   private latency = Number(stored(STORAGE.latency) ?? "100");
   private calibrating: number[] | null = null;
+  private latencySamples: LevelSample[] | null = null;
   private sendTimer: ReturnType<typeof setInterval> | undefined;
   private lastVoiced = 0;
 
@@ -117,6 +126,8 @@ class MicSession {
   private calibrateButton = h("button", { class: "secondary" }, "Calibrar ruido (3 s en silencio)");
   private calibrateInfo = h("p", { class: "hint small" });
   private latencyInput = h("input", { type: "number", min: "0", max: "1000", step: "10" });
+  private latencyButton = h("button", { class: "secondary" }, "Medir retraso del micrófono");
+  private latencyInfo = h("p", { class: "hint small" });
   private micPanel = h("section", { class: "mic-panel", hidden: true });
 
   constructor(
@@ -187,6 +198,7 @@ class MicSession {
     this.capture.onFrame = (f) => this.onFrame(f);
     this.activate.addEventListener("click", () => void this.enableMic());
     this.calibrateButton.addEventListener("click", () => this.calibrate());
+    this.latencyButton.addEventListener("click", () => this.measureLatency());
     this.latencyInput.addEventListener("change", () => {
       this.latency = Math.max(0, Math.min(1000, Number(this.latencyInput.value) || 0));
       store(STORAGE.latency, String(this.latency));
@@ -219,6 +231,13 @@ class MicSession {
         h("p", { class: "hint small" }, "Pide silencio en la sala y pulsa el botón para medir el ruido de fondo."),
         this.calibrateButton,
         this.calibrateInfo,
+        h(
+          "p",
+          { class: "hint small" },
+          "Retraso: verás un círculo que late. Canta «ta» justo con cada latido, siguiendo el ritmo.",
+        ),
+        this.latencyButton,
+        this.latencyInfo,
         h("label", { class: "row" }, "Retraso del micrófono (ms)", this.latencyInput),
       ),
     );
@@ -265,6 +284,7 @@ class MicSession {
 
   private onFrame(frame: CapturedFrame): void {
     if (this.calibrating) this.calibrating.push(frame.rms);
+    this.latencySamples?.push({ t: frame.tClient, rms: frame.rms });
     const voiced = frame.f0 !== null && frame.confidence >= MIN_CONFIDENCE && frame.rms >= this.gate;
     const level = Math.min(1, Math.sqrt(frame.rms / 0.3));
     (this.meter.firstElementChild as HTMLElement).style.width = `${(level * 100).toFixed(0)}%`;
@@ -315,6 +335,63 @@ class MicSession {
       this.calibrateInfo.textContent = `Calibrado ✓ (umbral ${this.gate.toFixed(3)})`;
       this.sendCalibration(true);
     }, CALIBRATION_MS);
+  }
+
+  private measureLatency(): void {
+    if (!this.capture.active || this.latencySamples || this.calibrating) return;
+    const circle = h("div", { class: "pulse" });
+    const label = h("div", { class: "pulse-label" }, "Prepárate…");
+    const overlay = h(
+      "div",
+      { class: "pulse-overlay" },
+      h("p", null, "Canta «ta» con cada latido"),
+      circle,
+      label,
+      h("button", { class: "secondary", onclick: () => finish(true) }, "Cancelar"),
+    );
+    document.body.append(overlay);
+
+    const start = performance.now() + 1500;
+    const total = LEAD_IN_BEATS + MEASURED_BEATS;
+    const beats = Array.from({ length: total }, (_, i) => start + i * BEAT_MS);
+    this.latencySamples = [];
+    let frame = 0;
+    let shown = -1;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const now = performance.now();
+      const index = beats.filter((b) => b <= now).length - 1;
+      if (index !== shown && index >= 0) {
+        shown = index;
+        label.textContent = index < LEAD_IN_BEATS ? String(LEAD_IN_BEATS - index) : "¡ta!";
+        circle.classList.remove("beat");
+        void circle.offsetWidth; // restart the CSS animation
+        circle.classList.add("beat");
+        navigator.vibrate?.(30);
+      }
+      if (now > beats[total - 1] + 900) finish(false);
+    };
+    const finish = (cancelled: boolean) => {
+      cancelAnimationFrame(frame);
+      overlay.remove();
+      const samples = this.latencySamples ?? [];
+      this.latencySamples = null;
+      if (cancelled) return;
+      const result = estimateLatency(beats.slice(LEAD_IN_BEATS), detectOnsets(samples, this.gate));
+      if (!result.ok) {
+        this.latencyInfo.textContent =
+          result.reason === "few"
+            ? "No se oyó bien el «ta» en varios latidos. Acerca el móvil y repite."
+            : "Los «ta» fueron muy irregulares. Repite siguiendo el ritmo con calma.";
+        return;
+      }
+      this.latency = result.latencyMs;
+      this.latencyInput.value = String(this.latency);
+      store(STORAGE.latency, String(this.latency));
+      this.latencyInfo.textContent = `Retraso medido: ${result.latencyMs} ms ✓`;
+      this.sendCalibration(true);
+    };
+    tick();
   }
 
   private sendCalibration(measured: boolean): void {

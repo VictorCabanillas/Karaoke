@@ -193,3 +193,44 @@ button.big {
 .combo {
   color: var(--warn);
 }
+
+.pulse-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  background: var(--bg);
+  text-align: center;
+}
+
+.pulse {
+  width: 45vmin;
+  height: 45vmin;
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+
+.pulse.beat {
+  animation: beat 300ms ease-out;
+}
+
+@keyframes beat {
+  from {
+    background: var(--accent);
+    transform: scale(1.15);
+  }
+  to {
+    background: var(--surface-2);
+    transform: scale(1);
+  }
+}
+
+.pulse-label {
+  font-size: 2.5rem;
+  font-weight: 800;
+  min-height: 1.2em;
+}
