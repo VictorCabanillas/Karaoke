@@ -490,3 +490,58 @@ button.compete {
   background: var(--accent-2);
   color: #0b1a22;
 }
+
+/* --- Spotify ------------------------------------------------------------ */
+
+.spotify-panel {
+  margin: 1rem 0;
+  padding: 0.8rem 1.1rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.spotify-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #1ed760;
+}
+
+.spotify-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.spotify-results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.spotify-results li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.spotify-results img {
+  border-radius: 4px;
+}
+
+.spotify-results .info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+button.link {
+  padding: 0;
+  background: none;
+  color: var(--accent-2);
+  font-weight: normal;
+  text-decoration: underline;
+}

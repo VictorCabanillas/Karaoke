@@ -22,8 +22,10 @@ from processing.queue import Pipeline, ProcessingQueue
 from server import ws_host, ws_mic
 from server.config import Settings, lan_ip, settings as default_settings
 from server.game import GameController
+from server.spotify import SpotifyError, SpotifyService
 from server.library import MELODY_FILE, Library
 from server.models import (
+    AddSpotifyTrack,
     ChooseLyrics,
     LrclibCandidate,
     Lyrics,
@@ -33,6 +35,9 @@ from server.models import (
     Song,
     SongPatch,
     SongUpdatedMsg,
+    SpotifyStatus,
+    SpotifyToken,
+    SpotifyTrack,
     StartGame,
     StopGame,
     SystemInfo,
@@ -48,6 +53,7 @@ def create_app(
     config: Settings | None = None,
     lrclib: LrclibClient | None = None,
     pipeline: Pipeline | None = None,
+    spotify: SpotifyService | None = None,
 ) -> FastAPI:
     config = config or default_settings
 
@@ -81,6 +87,9 @@ def create_app(
     app.state.config = config
     app.state.lrclib = lrclib or LrclibClient()
     app.state.hub = HostHub()
+    app.state.spotify = spotify or SpotifyService(
+        config.spotify_client_id, config.spotify_callback, config.data_dir / "spotify.json"
+    )
     app.include_router(ws_host.router)
     app.include_router(ws_mic.router)
 
@@ -203,7 +212,7 @@ def create_app(
         return Melody.model_validate(data)
 
     @app.get("/api/system")
-    def system_info() -> SystemInfo:
+    def system_info(request: Request) -> SystemInfo:
         missing = device_mod.missing_modules()
         return SystemInfo(
             device=device_mod.detect_device() if not missing else "cpu",
@@ -211,7 +220,7 @@ def create_app(
             missing_modules=missing,
             ffmpeg=audio_tools.ffmpeg_path() is not None,
             https=config.https,
-            spotify_configured=bool(config.spotify_client_id),
+            spotify_configured=request.app.state.spotify.configured,
         )
 
     # --- lyrics -------------------------------------------------------------
@@ -251,6 +260,78 @@ def create_app(
             raise HTTPException(404, "Letra no encontrada en LRCLIB")
         lyrics = record_to_lyrics(record, song.duration_s)
         return library(request).save_lyrics(song_id, lyrics, instrumental=bool(record.get("instrumental"))) or song
+
+    # --- Spotify ------------------------------------------------------------
+
+    def spotify(request: Request) -> SpotifyService:
+        return request.app.state.spotify
+
+    @app.get("/api/spotify/status")
+    def spotify_status(request: Request) -> SpotifyStatus:
+        s = spotify(request)
+        return SpotifyStatus(configured=s.configured, connected=s.connected, redirect_uri=s.redirect_uri)
+
+    @app.get("/api/spotify/login", include_in_schema=False)
+    def spotify_login(request: Request) -> RedirectResponse:
+        try:
+            return RedirectResponse(spotify(request).authorize_url())
+        except SpotifyError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/api/spotify/callback", include_in_schema=False)
+    async def spotify_callback(request: Request, code: str = "", state: str = "", error: str = "") -> RedirectResponse:
+        if error or not code:
+            return RedirectResponse(f"/host/#/?spotify_error={error or 'cancelado'}")
+        try:
+            await spotify(request).finish_login(code, state)
+        except (SpotifyError, httpx.HTTPError) as exc:
+            log.warning("Spotify login failed: %s", exc)
+            return RedirectResponse("/host/#/?spotify_error=login")
+        return RedirectResponse("/host/#/")
+
+    @app.post("/api/spotify/logout", status_code=204)
+    def spotify_logout(request: Request) -> None:
+        spotify(request).logout()
+
+    @app.get("/api/spotify/token")
+    async def spotify_token(request: Request) -> SpotifyToken:
+        try:
+            token, expires_at = await spotify(request).access_token()
+        except (SpotifyError, httpx.HTTPError) as exc:
+            raise HTTPException(401, str(exc)) from exc
+        return SpotifyToken(access_token=token, expires_at=expires_at)
+
+    @app.get("/api/spotify/search")
+    async def spotify_search(request: Request, q: str) -> list[SpotifyTrack]:
+        try:
+            return await spotify(request).search(q)
+        except (SpotifyError, httpx.HTTPError) as exc:
+            raise HTTPException(502, str(exc)) from exc
+
+    @app.post("/api/spotify/songs")
+    async def spotify_add(request: Request, body: AddSpotifyTrack) -> Song:
+        lib = library(request)
+        uri = f"spotify:track:{body.track_id}"
+        existing = next((s for s in lib.list() if s.spotify_uri == uri), None)
+        if existing:
+            return existing
+        try:
+            track = await spotify(request).track(body.track_id)
+        except (SpotifyError, httpx.HTTPError) as exc:
+            raise HTTPException(502, str(exc)) from exc
+        artist = track.artists.split(", ")[0] if track.artists else ""
+        song = lib.add(
+            Song(
+                id=lib.new_id(),
+                origin="spotify",
+                title=track.name,
+                artist=artist,
+                album=track.album,
+                duration_s=track.duration_ms / 1000,
+                spotify_uri=track.uri,
+            )
+        )
+        return await attach_lyrics(request, song)
 
     # --- room ---------------------------------------------------------------
 

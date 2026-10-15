@@ -51,6 +51,31 @@ Para que los móviles no muestren el aviso de «conexión no segura», instala e
 
 Si no la instalas, también vale con aceptar el aviso del navegador la primera vez («Avanzado» → «Continuar»).
 
+### Spotify (opcional)
+
+Para reproducir canciones de Spotify en la pantalla principal hace falta una cuenta **Premium** (solo la del
+anfitrión: los amigos no usan Spotify).
+
+1. Crea una app en el [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) marcando
+   «Web API» y «Web Playback SDK».
+2. Añade como *Redirect URI* `https://127.0.0.1:8000/api/spotify/callback` (o `http://...` si no usas
+   certificados; la URI exacta aparece en el panel de Spotify de la biblioteca).
+3. En modo desarrollo, añade tu cuenta en «User Management» (máximo 5 usuarios).
+4. Arranca el servidor con el *Client ID* de la app (no hace falta el secreto: se usa OAuth con PKCE):
+
+   ```sh
+   KARAOKE_SPOTIFY_CLIENT_ID=tu_client_id uv run python -m server
+   ```
+
+   (En PowerShell: `$env:KARAOKE_SPOTIFY_CLIENT_ID="tu_client_id"; uv run python -m server`.)
+
+5. Abre la pantalla principal en `127.0.0.1` (la misma dirección que la *Redirect URI*), despliega **Spotify** en
+   la biblioteca y pulsa **Conectar con Spotify**.
+
+Limitaciones (Spotify no da acceso al audio): letra solo por líneas (LRCLIB), sin control de voz, sin melodía de
+referencia (puntuación simplificada) y sin transcripción si LRCLIB no tiene la letra. Los archivos de audio son la
+vía principal; Spotify es un extra.
+
 ## Arrancar
 
 ### Modo fiesta (un solo programa)
@@ -132,6 +157,8 @@ Variables de entorno opcionales:
 | `KARAOKE_WHISPER_MODEL` | automático | Modelo de Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`) |
 | `KARAOKE_PUBLIC_PORT` | `KARAOKE_PORT` | Puerto que aparece en el QR (p. ej. `5173` con `npm run dev`) |
 | `KARAOKE_MIC_LATENCY_MS` | `100` | Retraso del micrófono por defecto |
+| `KARAOKE_SPOTIFY_CLIENT_ID` | — | Client ID de la app de Spotify |
+| `KARAOKE_SPOTIFY_REDIRECT_URI` | `http(s)://127.0.0.1:<puerto>/api/spotify/callback` | Redirect URI registrada en Spotify |
 
 ## Tests
 

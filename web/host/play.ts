@@ -8,6 +8,7 @@ import { LYRICS_LABELS } from "./library";
 import { LyricsView } from "./lyrics-view";
 import type { Playback } from "./playback";
 import { Scoreboard, showResults } from "./scoreboard";
+import { SpotifyPlayback } from "./spotify-playback";
 
 const OFFSET_LIMIT_MS = 2000;
 const OFFSET_STEP_MS = 50;
@@ -145,6 +146,10 @@ export class PlayScreen {
     }
     if (lyrics?.source === "whisper") {
       this.showBanner(`⚠ ${LYRICS_LABELS.whisper} (puede contener errores)`);
+    } else if (!lyrics && !this.song.instrumental) {
+      this.showBanner(
+        "No se encontró la letra de esta canción. Puedes buscarla con otro título o artista desde la biblioteca («Buscar letra»).",
+      );
     }
     this.lyricsView = new LyricsView(lyrics);
     if (this.song.has_melody) {
@@ -178,6 +183,12 @@ export class PlayScreen {
   }
 
   protected async createPlayback(): Promise<Playback> {
+    if (this.song.origin === "spotify") {
+      this.voiceHint.textContent = "Control de voz no disponible con Spotify";
+      const spotify = await SpotifyPlayback.create(this.song);
+      spotify.onError = (message) => this.showBanner(`⚠ ${message}`);
+      return spotify;
+    }
     const engine = new AudioEngine();
     if (this.song.has_stems) {
       await Promise.all([

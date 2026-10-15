@@ -3,6 +3,7 @@ import { formatTime, h } from "../shared/dom";
 import type { GameMode, LyricsSource, Song, SongStatus, SystemInfo } from "../shared/types";
 import { hostSocket } from "./connection";
 import { openLyricsSearch } from "./lyrics-search";
+import { SpotifyPanel } from "./spotify-panel";
 
 export const STATUS_LABELS: Record<SongStatus, string> = {
   imported: "importada",
@@ -31,6 +32,7 @@ export class LibraryView {
   private processAll = h("button", { class: "secondary", hidden: true }, "Procesar todas");
   private songs: Song[] = [];
   private info: SystemInfo | null = null;
+  private spotify = new SpotifyPanel((song) => this.updateSong(song));
 
   constructor(private onPlay: (song: Song, mode: GameMode) => void) {
     const fileInput = h("input", {
@@ -68,6 +70,7 @@ export class LibraryView {
       h("div", { class: "row spread" }, h("h2", null, "Biblioteca"), this.processAll),
       this.system,
       drop,
+      this.spotify.el,
       this.message,
       this.list,
     );
@@ -79,6 +82,7 @@ export class LibraryView {
       const [songs, info] = await Promise.all([api.get<Song[]>("/api/songs"), api.get<SystemInfo>("/api/system")]);
       this.songs = songs;
       this.info = info;
+      void this.spotify.refresh();
       this.renderSystem();
       this.render();
     } catch (err) {

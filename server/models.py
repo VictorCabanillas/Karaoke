@@ -111,6 +111,31 @@ class Melody(Model):
     midi: list[float | None]
 
 
+class SpotifyStatus(Model):
+    configured: bool
+    connected: bool
+    redirect_uri: str
+
+
+class SpotifyToken(Model):
+    access_token: str
+    expires_at: float
+
+
+class SpotifyTrack(Model):
+    id: str
+    uri: str
+    name: str
+    artists: str
+    album: str
+    duration_ms: int
+    image_url: str | None
+
+
+class AddSpotifyTrack(InputModel):
+    track_id: str = Field(pattern=r"^[A-Za-z0-9]{10,40}$")
+
+
 class SystemInfo(Model):
     device: str
     processing_available: bool

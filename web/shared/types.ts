@@ -47,6 +47,13 @@ export interface KaraokeTypes {
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "AddSpotifyTrack".
+ */
+export interface AddSpotifyTrack {
+  track_id: string;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "AwardEntry".
  */
 export interface AwardEntry {
@@ -357,6 +364,36 @@ export interface SongPatch {
 export interface SongUpdatedMsg {
   type: "song";
   song: Song;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "SpotifyStatus".
+ */
+export interface SpotifyStatus {
+  configured: boolean;
+  connected: boolean;
+  redirect_uri: string;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "SpotifyToken".
+ */
+export interface SpotifyToken {
+  access_token: string;
+  expires_at: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "SpotifyTrack".
+ */
+export interface SpotifyTrack {
+  id: string;
+  uri: string;
+  name: string;
+  artists: string;
+  album: string;
+  duration_ms: number;
+  image_url: string | null;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema

@@ -32,9 +32,9 @@ class Settings:
     # Whisper model sizes; empty means "pick automatically from the device".
     whisper_model: str = field(default_factory=lambda: _env("WHISPER_MODEL", ""))
     spotify_client_id: str = field(default_factory=lambda: _env("SPOTIFY_CLIENT_ID", ""))
-    spotify_redirect_uri: str = field(
-        default_factory=lambda: _env("SPOTIFY_REDIRECT_URI", "https://127.0.0.1:8000/api/spotify/callback")
-    )
+    # Must match one of the redirect URIs registered in the Spotify Developer Dashboard.
+    # Empty = {http|https}://127.0.0.1:{port}/api/spotify/callback
+    spotify_redirect_uri: str = field(default_factory=lambda: _env("SPOTIFY_REDIRECT_URI", ""))
 
     @property
     def songs_dir(self) -> Path:
@@ -55,6 +55,13 @@ class Settings:
     @property
     def https(self) -> bool:
         return self.cert_file.exists() and self.key_file.exists()
+
+    @property
+    def spotify_callback(self) -> str:
+        if self.spotify_redirect_uri:
+            return self.spotify_redirect_uri
+        scheme = "https" if self.https else "http"
+        return f"{scheme}://127.0.0.1:{self.port}/api/spotify/callback"
 
 
 def lan_ip() -> str:
