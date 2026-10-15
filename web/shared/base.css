@@ -122,3 +122,11 @@ dialog.modal {
 dialog.modal::backdrop {
   background: rgb(0 0 0 / 0.6);
 }
+
+.row.spread {
+  justify-content: space-between;
+}
+
+.small {
+  font-size: 0.85rem;
+}

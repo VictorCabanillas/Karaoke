@@ -13,30 +13,57 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from processing import audio as audio_tools
+from processing import device as device_mod
 from processing.lrclib import LrclibClient, find_lyrics, record_to_lyrics, to_candidate
 from processing.metadata import read_metadata
+from processing.queue import Pipeline, ProcessingQueue
 from server.config import Settings, settings as default_settings
-from server.library import Library
-from server.models import ChooseLyrics, LrclibCandidate, Lyrics, Song, SongPatch
+from server import ws_host
+from server.library import MELODY_FILE, Library
+from server.models import (
+    ChooseLyrics,
+    LrclibCandidate,
+    Lyrics,
+    Melody,
+    Song,
+    SongPatch,
+    SongUpdatedMsg,
+    SystemInfo,
+)
+from server.session import HostHub
 
 log = logging.getLogger("karaoke")
 
 ALLOWED_EXTENSIONS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm", ".wma"}
 
 
-def create_app(config: Settings | None = None, lrclib: LrclibClient | None = None) -> FastAPI:
+def create_app(
+    config: Settings | None = None,
+    lrclib: LrclibClient | None = None,
+    pipeline: Pipeline | None = None,
+) -> FastAPI:
     config = config or default_settings
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         config.data_dir.mkdir(parents=True, exist_ok=True)
+        app.state.hub.bind_loop()
         app.state.library = Library(config.data_dir)
+        app.state.queue = ProcessingQueue(
+            app.state.library,
+            on_update=lambda song: app.state.hub.broadcast_threadsafe(SongUpdatedMsg(song=song)),
+            pipeline=pipeline or Pipeline(config.whisper_model),
+        )
+        app.state.queue.start()
         yield
+        app.state.queue.stop()
         app.state.library.close()
 
     app = FastAPI(title="Karaoke entre amigos", lifespan=lifespan)
     app.state.config = config
     app.state.lrclib = lrclib or LrclibClient()
+    app.state.hub = HostHub()
+    app.include_router(ws_host.router)
 
     def library(request: Request) -> Library:
         return request.app.state.library
@@ -91,7 +118,10 @@ def create_app(config: Settings | None = None, lrclib: LrclibClient | None = Non
             Song(id=song_id, title=meta.title, artist=meta.artist, album=meta.album, duration_s=meta.duration_s),
             audio_file=audio_file,
         )
-        return await attach_lyrics(request, song)
+        song = await attach_lyrics(request, song)
+        if config.auto_process and device_mod.processing_available():
+            song = request.app.state.queue.enqueue(song.id) or song
+        return song
 
     @app.get("/api/songs/{song_id}")
     def read_song(request: Request, song_id: str) -> Song:
@@ -120,6 +150,33 @@ def create_app(config: Settings | None = None, lrclib: LrclibClient | None = Non
         if path is None or not path.exists():
             raise HTTPException(404, "Pista no disponible")
         return FileResponse(path)
+
+    @app.post("/api/songs/{song_id}/process")
+    def process_song(request: Request, song_id: str) -> Song:
+        song = get_song(request, song_id)
+        if song.origin != "file":
+            raise HTTPException(400, "Solo se pueden procesar archivos de audio")
+        return request.app.state.queue.enqueue(song_id) or song
+
+    @app.get("/api/songs/{song_id}/melody")
+    def song_melody(request: Request, song_id: str) -> Melody:
+        get_song(request, song_id)
+        data = library(request).load_json(song_id, MELODY_FILE)
+        if data is None:
+            raise HTTPException(404, "La melodía todavía no está disponible")
+        return Melody.model_validate(data)
+
+    @app.get("/api/system")
+    def system_info() -> SystemInfo:
+        missing = device_mod.missing_modules()
+        return SystemInfo(
+            device=device_mod.detect_device() if not missing else "cpu",
+            processing_available=not missing,
+            missing_modules=missing,
+            ffmpeg=audio_tools.ffmpeg_path() is not None,
+            https=config.https,
+            spotify_configured=bool(config.spotify_client_id),
+        )
 
     # --- lyrics -------------------------------------------------------------
 

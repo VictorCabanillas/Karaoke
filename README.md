@@ -16,6 +16,18 @@ uv sync          # dependencias de Python
 npm install      # dependencias del frontend
 ```
 
+### Procesado de canciones (opcional, recomendado)
+
+Separar la voz (Demucs), sacar la melodía de referencia (CREPE) y alinear/transcribir la letra (Whisper) necesita
+dependencias pesadas (PyTorch, varios GB):
+
+```sh
+uv sync --extra processing
+```
+
+En Windows y Linux se instala PyTorch con CUDA (funciona también sin GPU). La primera vez que se procesa una canción
+se descargan los modelos (Demucs ~80 MB, Whisper `medium` ~1,5 GB con GPU o `small` ~500 MB en CPU).
+
 ## Arrancar
 
 ### Modo fiesta (un solo programa)
@@ -46,6 +58,20 @@ Abre la URL que muestra Vite (`/host/`).
 
 Atajo: barra espaciadora = reproducir / pausar.
 
+### Procesado
+
+Con el procesado instalado, cada canción importada entra en la cola y se procesa en segundo plano, de una en una
+(también se puede lanzar con **Procesar** / **Procesar todas**). Se puede cantar en karaoke libre mientras tanto.
+Al terminar:
+
+- **Volumen de la voz** (100 % = canción original) y **Solo instrumental**.
+- Relleno palabra a palabra con los tiempos reales (Whisper alineado con la letra de LRCLIB).
+- Si LRCLIB no tenía letra, se transcribe del audio y se marca como «letra transcrita automáticamente».
+- Melodía de referencia para puntuar la afinación en el modo competición.
+
+Todo se guarda en `data/songs/<id>/` y no se vuelve a calcular. En CPU cada canción tarda varios minutos: conviene
+dejarlas procesando antes de la quedada.
+
 ## Configuración
 
 Variables de entorno opcionales:
@@ -55,6 +81,8 @@ Variables de entorno opcionales:
 | `KARAOKE_PORT` | `8000` | Puerto del servidor |
 | `KARAOKE_HOST` | `0.0.0.0` | Interfaz en la que escucha |
 | `KARAOKE_DATA_DIR` | `data/` | Biblioteca, canciones y caché |
+| `KARAOKE_AUTO_PROCESS` | `1` | Encolar automáticamente cada canción importada |
+| `KARAOKE_WHISPER_MODEL` | automático | Modelo de Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`) |
 
 ## Tests
 

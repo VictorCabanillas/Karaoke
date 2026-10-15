@@ -69,6 +69,16 @@ export interface Lyrics {
   lines: Line[];
 }
 /**
+ * Reference pitch of the vocals: one MIDI value (or null = not singing) every hop_ms.
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "Melody".
+ */
+export interface Melody {
+  hop_ms: number;
+  midi: (number | null)[];
+}
+/**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "Song".
  */
@@ -100,4 +110,24 @@ export interface SongPatch {
   artist?: string | null;
   album?: string | null;
   offset_ms?: number | null;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "SongUpdatedMsg".
+ */
+export interface SongUpdatedMsg {
+  type: "song";
+  song: Song;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "SystemInfo".
+ */
+export interface SystemInfo {
+  device: string;
+  processing_available: boolean;
+  missing_modules: string[];
+  ffmpeg: boolean;
+  https: boolean;
+  spotify_configured: boolean;
 }

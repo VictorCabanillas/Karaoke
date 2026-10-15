@@ -70,6 +70,7 @@ def settings(tmp_path) -> Settings:
     s = Settings()
     s.data_dir = tmp_path / "data"
     s.web_dist = tmp_path / "no-dist"
+    s.auto_process = False
     return s
 
 

@@ -27,6 +27,8 @@ class Settings:
     user_agent: str = "karaoke-amigos/0.1 (https://github.com/VictorCabanillas/Karaoke)"
     # Default microphone input latency (ms) until the player calibrates it.
     default_mic_latency_ms: int = field(default_factory=lambda: int(_env("MIC_LATENCY_MS", "100")))
+    # Queue every imported file for processing automatically (when the processing extras are installed).
+    auto_process: bool = field(default_factory=lambda: _env("AUTO_PROCESS", "1") not in ("0", "false", "no"))
     # Whisper model sizes; empty means "pick automatically from the device".
     whisper_model: str = field(default_factory=lambda: _env("WHISPER_MODEL", ""))
     spotify_client_id: str = field(default_factory=lambda: _env("SPOTIFY_CLIENT_ID", ""))

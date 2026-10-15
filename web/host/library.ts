@@ -1,6 +1,7 @@
 import { api } from "../shared/api";
 import { formatTime, h } from "../shared/dom";
-import type { LyricsSource, Song, SongStatus } from "../shared/types";
+import type { LyricsSource, Song, SongStatus, SystemInfo } from "../shared/types";
+import { hostSocket } from "./connection";
 import { openLyricsSearch } from "./lyrics-search";
 
 export const STATUS_LABELS: Record<SongStatus, string> = {
@@ -22,7 +23,10 @@ export class LibraryView {
   readonly el: HTMLElement;
   private list = h("ul", { class: "songs" });
   private message = h("p", { class: "hint" });
+  private system = h("p", { class: "hint system" });
+  private processAll = h("button", { class: "secondary", hidden: true }, "Procesar todas");
   private songs: Song[] = [];
+  private info: SystemInfo | null = null;
 
   constructor(private onPlay: (song: Song) => void) {
     const fileInput = h("input", {
@@ -53,12 +57,25 @@ export class LibraryView {
       void this.upload([...(e.dataTransfer?.files ?? [])]);
     });
 
-    this.el = h("section", { class: "library" }, h("h2", null, "Biblioteca"), drop, this.message, this.list);
+    this.processAll.addEventListener("click", () => void this.enqueueAll());
+    this.el = h(
+      "section",
+      { class: "library" },
+      h("div", { class: "row spread" }, h("h2", null, "Biblioteca"), this.processAll),
+      this.system,
+      drop,
+      this.message,
+      this.list,
+    );
+    hostSocket.on("song", (msg) => this.updateSong(msg.song));
   }
 
   async refresh(): Promise<void> {
     try {
-      this.songs = await api.get<Song[]>("/api/songs");
+      const [songs, info] = await Promise.all([api.get<Song[]>("/api/songs"), api.get<SystemInfo>("/api/system")]);
+      this.songs = songs;
+      this.info = info;
+      this.renderSystem();
       this.render();
     } catch (err) {
       this.message.textContent = `No se pudo cargar la biblioteca: ${(err as Error).message}`;
@@ -71,6 +88,35 @@ export class LibraryView {
     if (i >= 0) this.songs[i] = song;
     else this.songs.unshift(song);
     this.render();
+  }
+
+  private renderSystem(): void {
+    const info = this.info;
+    if (!info) return;
+    const device = { cuda: "GPU NVIDIA", mps: "GPU Apple", cpu: "CPU" }[info.device] ?? info.device;
+    const parts = [
+      info.processing_available
+        ? `Procesado de canciones: ${device}${info.device === "cpu" ? " (varios minutos por canción)" : ""}`
+        : `Procesado no instalado (falta: ${info.missing_modules.join(", ")}). Instálalo con «uv sync --extra processing».`,
+      info.ffmpeg ? null : "ffmpeg no encontrado: no se normaliza el volumen.",
+    ];
+    this.system.textContent = parts.filter(Boolean).join(" · ");
+  }
+
+  private canProcess(song: Song): boolean {
+    return song.origin === "file" && song.status !== "processing" && song.status !== "processed";
+  }
+
+  private async enqueue(song: Song): Promise<void> {
+    try {
+      this.updateSong(await api.post<Song>(`/api/songs/${song.id}/process`));
+    } catch (err) {
+      this.message.textContent = `No se pudo procesar «${song.title}»: ${(err as Error).message}`;
+    }
+  }
+
+  private async enqueueAll(): Promise<void> {
+    for (const song of this.songs.filter((s) => this.canProcess(s))) await this.enqueue(song);
   }
 
   private async upload(files: File[]): Promise<void> {
@@ -87,9 +133,16 @@ export class LibraryView {
     this.message.textContent = "";
   }
 
-  protected actions(song: Song): HTMLElement[] {
+  protected actions(song: Song): (HTMLElement | null)[] {
     return [
       h("button", { onclick: () => this.onPlay(song) }, "Cantar"),
+      this.canProcess(song) && this.info?.processing_available
+        ? h(
+            "button",
+            { class: "secondary", onclick: () => void this.enqueue(song) },
+            song.status === "error" ? "Reintentar procesado" : "Procesar",
+          )
+        : null,
       h(
         "button",
         {
@@ -118,6 +171,7 @@ export class LibraryView {
   }
 
   private render(): void {
+    this.processAll.hidden = !(this.info?.processing_available && this.songs.filter((s) => this.canProcess(s)).length > 1);
     if (this.songs.length === 0) {
       this.list.replaceChildren(h("li", { class: "empty" }, "Todavía no hay canciones."));
       return;

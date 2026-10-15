@@ -93,3 +93,27 @@ class SongPatch(InputModel):
 
 class ChooseLyrics(InputModel):
     lrclib_id: int
+
+
+class Melody(Model):
+    """Reference pitch of the vocals: one MIDI value (or null = not singing) every hop_ms."""
+
+    hop_ms: int
+    midi: list[float | None]
+
+
+class SystemInfo(Model):
+    device: str
+    processing_available: bool
+    missing_modules: list[str]
+    ffmpeg: bool
+    https: bool
+    spotify_configured: bool
+
+
+# --- WebSocket messages: server -> host screen ---------------------------------
+
+
+class SongUpdatedMsg(Model):
+    type: Literal["song"] = "song"
+    song: Song

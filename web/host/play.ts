@@ -20,6 +20,23 @@ export class PlayScreen {
   private timeLabel = h("span", { class: "time" }, "0:00 / 0:00");
   private offsetLabel = h("output");
   private banner = h("div", { class: "banner", hidden: true });
+  private voice = h("input", { type: "range", min: "0", max: "100", step: "1", value: "100", disabled: true });
+  private voiceLabel = h("output", null, "100%");
+  private instrumentalOnly = h("input", { type: "checkbox", disabled: true });
+  private voiceControl = h(
+    "label",
+    { class: "control disabled", title: "Disponible cuando termine el procesado" },
+    "Volumen de la voz ",
+    this.voice,
+    this.voiceLabel,
+  );
+  private instrumentalControl = h(
+    "label",
+    { class: "control disabled", title: "Disponible cuando termine el procesado" },
+    this.instrumentalOnly,
+    " Solo instrumental",
+  );
+  private voiceHint = h("span", { class: "hint small" }, "Control de voz disponible cuando termine el procesado");
   private seeking = false;
 
   constructor(
@@ -74,6 +91,9 @@ export class PlayScreen {
           offset,
           this.offsetLabel,
         ),
+        this.voiceControl,
+        this.instrumentalControl,
+        this.voiceHint,
       ),
     );
     this.onKey = this.onKey.bind(this);
@@ -106,8 +126,41 @@ export class PlayScreen {
 
   protected async createPlayback(): Promise<Playback> {
     const engine = new AudioEngine();
-    await engine.load("original", `/api/songs/${this.song.id}/audio/original`);
+    if (this.song.has_stems) {
+      await Promise.all([
+        engine.load("vocals", `/api/songs/${this.song.id}/audio/vocals`),
+        engine.load("instrumental", `/api/songs/${this.song.id}/audio/instrumental`),
+      ]);
+      this.enableVoiceControls(engine);
+    } else {
+      await engine.load("original", `/api/songs/${this.song.id}/audio/original`);
+    }
     return engine;
+  }
+
+  private enableVoiceControls(engine: AudioEngine): void {
+    let level = 100;
+    const apply = () => {
+      const value = this.instrumentalOnly.checked ? 0 : level;
+      this.voice.value = String(value);
+      this.voiceLabel.textContent = `${value}%`;
+      engine.setGain("vocals", value / 100);
+    };
+    this.voice.addEventListener("input", () => {
+      level = Number(this.voice.value);
+      this.instrumentalOnly.checked = level === 0;
+      apply();
+    });
+    this.instrumentalOnly.addEventListener("change", () => {
+      if (!this.instrumentalOnly.checked && level === 0) level = 100;
+      apply();
+    });
+    for (const el of [this.voice, this.instrumentalOnly]) el.disabled = false;
+    for (const el of [this.voiceControl, this.instrumentalControl]) {
+      el.classList.remove("disabled");
+      el.removeAttribute("title");
+    }
+    this.voiceHint.remove();
   }
 
   private toggle(): void {
