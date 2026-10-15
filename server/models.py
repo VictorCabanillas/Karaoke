@@ -23,6 +23,7 @@ class InputModel(Model):
 
 # Type aliases that also get a named TypeScript type.
 TS_ALIASES = (
+    "GameMode",
     "LyricsSource",
     "SongStatus",
     "SongOrigin",
@@ -152,6 +153,26 @@ class PlayerPitch(Model):
     frames: list[LivePitch]
 
 
+# --- Competition --------------------------------------------------------------
+
+GameMode = Literal["free", "competition"]
+
+
+class ScoreEntry(Model):
+    player_id: str
+    name: str
+    color: str
+    score: int
+    combo: int
+
+
+class AwardEntry(Model):
+    title: str
+    player_id: str
+    name: str
+    detail: str
+
+
 # --- WebSocket messages: shared ------------------------------------------------
 
 
@@ -212,7 +233,35 @@ class MicStatusMsg(Model):
     playing: bool
 
 
-ServerToMic = Annotated[Union[WelcomeMsg, ClockPong, MicStatusMsg, ErrorMsg], Field(discriminator="type")]
+class MicScoreMsg(Model):
+    type: Literal["score"] = "score"
+    score: int
+    rank: int
+    players: int
+    combo: int
+
+
+class ResultsMsg(Model):
+    type: Literal["results"] = "results"
+    song_title: str
+    simplified: bool
+    ranking: list[ScoreEntry]
+    awards: list[AwardEntry]
+
+
+class GameStateMsg(Model):
+    """Sent to phones and host whenever a game starts or ends."""
+
+    type: Literal["game"] = "game"
+    mode: GameMode
+    song_title: str | None
+    simplified: bool
+
+
+ServerToMic = Annotated[
+    Union[WelcomeMsg, ClockPong, MicStatusMsg, MicScoreMsg, ResultsMsg, GameStateMsg, ErrorMsg],
+    Field(discriminator="type"),
+]
 
 
 # --- WebSocket messages: host screen -> server ---------------------------------
@@ -234,7 +283,22 @@ class RemovePlayer(InputModel):
     player_id: str
 
 
-HostToServer = Annotated[Union[ClockPing, PlaybackState, RemovePlayer], Field(discriminator="type")]
+class StartGame(InputModel):
+    type: Literal["start_game"] = "start_game"
+    song_id: str
+    mode: GameMode
+
+
+class StopGame(InputModel):
+    """End the current game. With publish=True the final results are computed and shown."""
+
+    type: Literal["stop_game"] = "stop_game"
+    publish: bool = True
+
+
+HostToServer = Annotated[
+    Union[ClockPing, PlaybackState, RemovePlayer, StartGame, StopGame], Field(discriminator="type")
+]
 
 
 # --- WebSocket messages: server -> host screen ---------------------------------
@@ -258,4 +322,13 @@ class PitchLiveMsg(Model):
     players: list[PlayerPitch]
 
 
-ServerToHost = Annotated[Union[SongUpdatedMsg, RoomMsg, PitchLiveMsg, ClockPong], Field(discriminator="type")]
+class ScoresMsg(Model):
+    type: Literal["scores"] = "scores"
+    simplified: bool
+    entries: list[ScoreEntry]
+
+
+ServerToHost = Annotated[
+    Union[SongUpdatedMsg, RoomMsg, PitchLiveMsg, ClockPong, ScoresMsg, ResultsMsg, GameStateMsg, ErrorMsg],
+    Field(discriminator="type"),
+]

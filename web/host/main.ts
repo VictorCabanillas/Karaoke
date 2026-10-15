@@ -8,18 +8,20 @@ import { PlayScreen } from "./play";
 import { RoomPanel } from "./room-panel";
 
 const app = $("#app");
-const library = new LibraryView((song) => (location.hash = `#/play/${song.id}`));
+const library = new LibraryView(
+  (song, mode) => (location.hash = `#/${mode === "competition" ? "compete" : "play"}/${song.id}`),
+);
 const roomPanel = new RoomPanel();
 let screen: PlayScreen | null = null;
 
 async function route(): Promise<void> {
   screen?.dispose();
   screen = null;
-  const match = location.hash.match(/^#\/play\/(\w+)/);
+  const match = location.hash.match(/^#\/(play|compete)\/(\w+)/);
   if (match) {
     try {
-      const song = await api.get<Song>(`/api/songs/${match[1]}`);
-      screen = new PlayScreen(song, () => (location.hash = "#/"));
+      const song = await api.get<Song>(`/api/songs/${match[2]}`);
+      screen = new PlayScreen(song, () => (location.hash = "#/"), match[1] === "compete" ? "competition" : "free");
       app.replaceChildren(screen.el);
       await screen.start();
     } catch (err) {

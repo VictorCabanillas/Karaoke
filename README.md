@@ -95,6 +95,16 @@ Portátil y móviles tienen que estar en la misma Wi-Fi.
 Consejos: cantad con el móvil cerca de la boca y con la música a un volumen moderado (cada móvil oye también los
 altavoces y a los demás).
 
+### Modos de juego
+
+- **Cantar** (karaoke libre): sin puntuación.
+- **Competir**: todos cantan a la vez y cada uno se puntúa por separado, hasta 10 000 puntos por canción.
+  - Canción **procesada**: afinación (70 %, sin tener en cuenta la octava, así que voces graves y agudas puntúan
+    igual) + presencia y ritmo (30 %). Cantar en los silencios resta un poco.
+  - Canción **sin procesar** (o de Spotify): *puntuación simplificada*, solo presencia y ritmo según la letra.
+  - Marcador en vivo, racha 🔥, y al terminar la canción (o con **Terminar y ver resultados**) ranking con premios
+    («Más afinado», «Más constante», «Pulmones de acero»...). Cada móvil ve su puesto y su puntuación.
+
 ### Procesado
 
 Con el procesado instalado, cada canción importada entra en la cola y se procesa en segundo plano, de una en una

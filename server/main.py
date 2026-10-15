@@ -21,6 +21,7 @@ from processing.metadata import read_metadata
 from processing.queue import Pipeline, ProcessingQueue
 from server import ws_host, ws_mic
 from server.config import Settings, lan_ip, settings as default_settings
+from server.game import GameController
 from server.library import MELODY_FILE, Library
 from server.models import (
     ChooseLyrics,
@@ -32,6 +33,8 @@ from server.models import (
     Song,
     SongPatch,
     SongUpdatedMsg,
+    StartGame,
+    StopGame,
     SystemInfo,
 )
 from server.session import HostHub, Room
@@ -67,6 +70,7 @@ def create_app(
             https=config.https,
             default_latency_ms=config.default_mic_latency_ms,
         )
+        app.state.game = GameController(app.state.room, app.state.library)
         app.state.room.start()
         yield
         await app.state.room.stop()
@@ -89,7 +93,10 @@ def create_app(
         room.clock.update(state)
 
     async def on_host_message(msg) -> None:
-        pass
+        if isinstance(msg, StartGame):
+            await app.state.game.start(msg)
+        elif isinstance(msg, StopGame):
+            await app.state.game.stop(msg)
 
     app.state.on_playback = on_playback
     app.state.on_host_message = on_host_message

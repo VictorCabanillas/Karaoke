@@ -1,6 +1,6 @@
 import { api } from "../shared/api";
 import { formatTime, h } from "../shared/dom";
-import type { LyricsSource, Song, SongStatus, SystemInfo } from "../shared/types";
+import type { GameMode, LyricsSource, Song, SongStatus, SystemInfo } from "../shared/types";
 import { hostSocket } from "./connection";
 import { openLyricsSearch } from "./lyrics-search";
 
@@ -19,6 +19,10 @@ export const LYRICS_LABELS: Record<LyricsSource, string> = {
   lrclib_lines_only: "letra sin sincronizar",
 };
 
+export function canCompete(song: Song): boolean {
+  return song.has_melody || (song.lyrics_source !== null && song.lyrics_source !== "lrclib_lines_only");
+}
+
 export class LibraryView {
   readonly el: HTMLElement;
   private list = h("ul", { class: "songs" });
@@ -28,7 +32,7 @@ export class LibraryView {
   private songs: Song[] = [];
   private info: SystemInfo | null = null;
 
-  constructor(private onPlay: (song: Song) => void) {
+  constructor(private onPlay: (song: Song, mode: GameMode) => void) {
     const fileInput = h("input", {
       type: "file",
       accept: "audio/*,.mp3,.m4a,.flac,.ogg,.opus,.wav,.webm,.wma",
@@ -135,7 +139,21 @@ export class LibraryView {
 
   protected actions(song: Song): (HTMLElement | null)[] {
     return [
-      h("button", { onclick: () => this.onPlay(song) }, "Cantar"),
+      h("button", { onclick: () => this.onPlay(song, "free") }, "Cantar"),
+      h(
+        "button",
+        {
+          class: "compete",
+          disabled: !canCompete(song),
+          title: canCompete(song)
+            ? song.has_melody
+              ? "Puntúa afinación y ritmo"
+              : "Puntuación simplificada: solo ritmo (procesa la canción para puntuar la afinación)"
+            : "Hace falta letra sincronizada o procesar la canción",
+          onclick: () => this.onPlay(song, "competition"),
+        },
+        "Competir",
+      ),
       this.canProcess(song) && this.info?.processing_available
         ? h(
             "button",

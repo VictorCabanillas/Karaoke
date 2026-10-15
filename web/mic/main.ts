@@ -112,6 +112,8 @@ class MicSession {
   private song = h("p", { class: "song hint" });
   private line = h("p", { class: "line" });
   private nextLine = h("p", { class: "next-line" });
+  private scoreCard = h("div", { class: "score-card", hidden: true });
+  private results = h("div", { class: "results", hidden: true });
   private calibrateButton = h("button", { class: "secondary" }, "Calibrar ruido (3 s en silencio)");
   private calibrateInfo = h("p", { class: "hint small" });
   private latencyInput = h("input", { type: "number", min: "0", max: "1000", step: "10" });
@@ -157,6 +159,31 @@ class MicSession {
       this.nextLine.textContent = msg.next_line ?? "";
     });
 
+    this.socket.on("game", (msg) => {
+      if (msg.mode === "competition") {
+        this.results.hidden = true;
+        this.showScore(0, 0, 0, 0, msg.simplified);
+      } else {
+        this.scoreCard.hidden = true;
+      }
+    });
+    this.socket.on("score", (msg) => this.showScore(msg.score, msg.rank, msg.players, msg.combo));
+    this.socket.on("results", (msg) => {
+      this.scoreCard.hidden = true;
+      const me = this.player?.id;
+      const position = msg.ranking.findIndex((e) => e.player_id === me);
+      const mine = msg.ranking[position];
+      const awards = msg.awards.filter((a) => a.player_id === me);
+      this.results.replaceChildren(
+        h("h2", null, position === 0 ? "🏆 ¡Has ganado!" : "Resultados"),
+        mine
+          ? h("p", { class: "big-number" }, `${position + 1}º · ${mine.score.toLocaleString("es-ES")} puntos`)
+          : h("p", null, "Esta vez no has puntuado."),
+        ...awards.map((a) => h("p", { class: "award" }, `🎖 ${a.title}: ${a.detail}`)),
+      );
+      this.results.hidden = false;
+    });
+
     this.capture.onFrame = (f) => this.onFrame(f);
     this.activate.addEventListener("click", () => void this.enableMic());
     this.calibrateButton.addEventListener("click", () => this.calibrate());
@@ -166,6 +193,18 @@ class MicSession {
       this.sendCalibration(false);
     });
     this.sendTimer = setInterval(() => this.flush(), SEND_EVERY_MS);
+  }
+
+  private showScore(score: number, rank: number, players: number, combo: number, simplified?: boolean): void {
+    this.scoreCard.hidden = false;
+    if (simplified !== undefined) this.scoreCard.dataset.simplified = String(simplified);
+    const parts = [
+      h("span", { class: "big-number" }, score.toLocaleString("es-ES")),
+      h("span", { class: "hint" }, rank ? `puesto ${rank} de ${players}` : "¡A cantar!"),
+      combo >= 10 ? h("span", { class: "combo" }, `🔥 racha de ${Math.floor(combo / 10)} s`) : null,
+      this.scoreCard.dataset.simplified === "true" ? h("small", { class: "hint" }, "puntuación simplificada") : null,
+    ];
+    this.scoreCard.replaceChildren(...parts.filter((p): p is HTMLElement => p !== null));
   }
 
   private render(): void {
@@ -191,6 +230,8 @@ class MicSession {
         this.status,
         this.activate,
         this.micPanel,
+        this.scoreCard,
+        this.results,
         h("div", { class: "lyrics" }, this.song, this.line, this.nextLine),
         h("p", { class: "hint small tip" }, "Canta con el móvil cerca de la boca."),
       ),

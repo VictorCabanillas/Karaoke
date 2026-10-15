@@ -1,12 +1,13 @@
 import { api, ApiError } from "../shared/api";
 import { debounce, formatTime, h } from "../shared/dom";
-import type { Lyrics, Melody, Song } from "../shared/types";
+import type { GameMode, Lyrics, Melody, Song } from "../shared/types";
 import { AudioEngine } from "./audio";
 import { hostSocket, reportPlayback, room, startPlaybackReports } from "./connection";
 import { PitchLanes } from "./lanes";
 import { LYRICS_LABELS } from "./library";
 import { LyricsView } from "./lyrics-view";
 import type { Playback } from "./playback";
+import { Scoreboard, showResults } from "./scoreboard";
 
 const OFFSET_LIMIT_MS = 2000;
 const OFFSET_STEP_MS = 50;
@@ -16,6 +17,9 @@ export class PlayScreen {
   protected playback: Playback | null = null;
   private lyricsView: LyricsView | null = null;
   protected lanes = new PitchLanes();
+  private scoreboard = new Scoreboard();
+  private gameActive = false;
+  private finishButton = h("button", { class: "secondary", hidden: true }, "Terminar y ver resultados");
   private frame = 0;
   private cleanups: (() => void)[] = [];
   protected stage = h("div", { class: "stage" }, h("p", { class: "loading" }, "Cargando…"));
@@ -48,6 +52,7 @@ export class PlayScreen {
   constructor(
     protected song: Song,
     private onExit: () => void,
+    protected mode: GameMode = "free",
   ) {
     const offset = h("input", {
       type: "range",
@@ -79,7 +84,10 @@ export class PlayScreen {
       { class: "play-header" },
       h("button", { class: "secondary", onclick: () => this.onExit() }, "← Biblioteca"),
       h("div", { class: "title" }, h("strong", null, song.title), h("span", null, song.artist)),
+      h("span", { class: `badge mode ${mode}` }, mode === "competition" ? "Competición" : "Karaoke libre"),
+      this.finishButton,
     );
+    this.finishButton.addEventListener("click", () => this.finishGame());
     this.controls = h(
       "footer",
       { class: "controls" },
@@ -97,7 +105,15 @@ export class PlayScreen {
       this.instrumentalControl,
       this.voiceHint,
     );
-    this.el = h("section", { class: "play-screen" }, this.header, this.banner, this.stage, this.lanes.el, this.controls);
+    this.el = h(
+      "section",
+      { class: "play-screen" },
+      this.header,
+      this.banner,
+      h("div", { class: "stage-row" }, this.stage, this.scoreboard.el),
+      this.lanes.el,
+      this.controls,
+    );
     this.onKey = this.onKey.bind(this);
     document.addEventListener("keydown", this.onKey);
 
@@ -105,6 +121,18 @@ export class PlayScreen {
     this.cleanups.push(
       hostSocket.on("room", (msg) => this.lanes.setPlayers(msg.players)),
       hostSocket.on("pitch_live", (msg) => this.lanes.push(msg)),
+      hostSocket.on("game", (msg) => {
+        this.gameActive = msg.mode === "competition";
+        this.finishButton.hidden = !this.gameActive;
+        this.seek.disabled = this.gameActive;
+        if (this.gameActive) this.scoreboard.show(msg.simplified);
+      }),
+      hostSocket.on("scores", (msg) => this.scoreboard.render(msg.entries)),
+      hostSocket.on("results", (msg) => {
+        this.playback?.pause();
+        showResults(msg, () => this.restart(), () => this.onExit());
+      }),
+      hostSocket.on("error", (msg) => this.showBanner(`⚠ ${msg.message}`)),
     );
   }
 
@@ -135,6 +163,15 @@ export class PlayScreen {
     };
     this.playback.onEnded = () => this.onEnded();
     this.cleanups.push(startPlaybackReports(() => [this.song.id, this.playback, this.song.offset_ms]));
+    // Start once (as soon as the socket is up); a reconnection must not reset the scores.
+    let started = false;
+    this.cleanups.push(
+      hostSocket.onOpen(() => {
+        if (started) return;
+        started = true;
+        this.startGame();
+      }),
+    );
     this.stage.replaceChildren(this.lyricsView.el);
     this.playButton.disabled = false;
     this.loop();
@@ -154,7 +191,26 @@ export class PlayScreen {
     return engine;
   }
 
-  protected onEnded(): void {}
+  private startGame(): void {
+    hostSocket.send({ type: "start_game", song_id: this.song.id, mode: this.mode });
+  }
+
+  protected onEnded(): void {
+    if (this.gameActive) this.finishGame();
+  }
+
+  private finishGame(): void {
+    if (!this.gameActive) return;
+    this.gameActive = false;
+    this.playback?.pause();
+    hostSocket.send({ type: "stop_game", publish: true });
+  }
+
+  private restart(): void {
+    this.playback?.seek(0);
+    this.scoreboard.render([]);
+    this.startGame();
+  }
 
   protected report(): void {
     reportPlayback(this.song.id, this.playback, this.song.offset_ms);
@@ -227,6 +283,7 @@ export class PlayScreen {
     cancelAnimationFrame(this.frame);
     document.removeEventListener("keydown", this.onKey);
     this.cleanups.forEach((fn) => fn());
+    if (this.gameActive) hostSocket.send({ type: "stop_game", publish: false });
     this.playback?.dispose();
     reportPlayback(null, null);
   }

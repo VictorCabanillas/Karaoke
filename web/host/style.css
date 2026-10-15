@@ -390,3 +390,103 @@ button.icon {
   border-radius: var(--radius);
   background: var(--surface);
 }
+
+/* --- competition -------------------------------------------------------- */
+
+.badge.mode.competition {
+  color: var(--accent);
+}
+
+.play-header .badge.mode {
+  margin-left: 0;
+}
+
+.play-header > button.secondary:last-child {
+  margin-left: auto;
+}
+
+.stage-row {
+  flex: 1;
+  display: flex;
+  gap: 1.5rem;
+  min-height: 0;
+}
+
+.stage-row .stage {
+  flex: 1;
+}
+
+.scoreboard {
+  align-self: center;
+  width: 280px;
+  padding: 1rem 1.2rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.scoreboard h3 {
+  margin: 0 0 0.5rem;
+}
+
+.scores,
+.ranking {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.scores li,
+.ranking li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.scores .dot,
+.ranking .dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  flex: none;
+}
+
+.scores .name,
+.ranking .name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.scores .points {
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.combo {
+  font-size: 0.8rem;
+  color: var(--warn);
+}
+
+.results .ranking li {
+  font-size: 1.2rem;
+  padding: 0.4rem 0;
+}
+
+.results .ranking li.winner {
+  font-size: 1.6rem;
+}
+
+.results .medal {
+  width: 2.2rem;
+}
+
+.awards {
+  padding-left: 1.2rem;
+  line-height: 1.7;
+}
+
+button.compete {
+  background: var(--accent-2);
+  color: #0b1a22;
+}

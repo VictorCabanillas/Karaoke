@@ -2,6 +2,11 @@
 
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "GameMode".
+ */
+export type GameMode = "free" | "competition";
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "LyricsSource".
  */
 export type LyricsSource = "lrclib_synced" | "lrclib_aligned" | "whisper" | "lrclib_lines_only";
@@ -24,20 +29,31 @@ export type MicToServer = MicHello | ClockPing | PitchBatch | MicCalibration;
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "ServerToMic".
  */
-export type ServerToMic = WelcomeMsg | ClockPong | MicStatusMsg | ErrorMsg;
+export type ServerToMic = WelcomeMsg | ClockPong | MicStatusMsg | MicScoreMsg | ResultsMsg | GameStateMsg | ErrorMsg;
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "HostToServer".
  */
-export type HostToServer = ClockPing | PlaybackState | RemovePlayer;
+export type HostToServer = ClockPing | PlaybackState | RemovePlayer | StartGame | StopGame;
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "ServerToHost".
  */
-export type ServerToHost = SongUpdatedMsg | RoomMsg | PitchLiveMsg | ClockPong;
+export type ServerToHost =
+  SongUpdatedMsg | RoomMsg | PitchLiveMsg | ClockPong | ScoresMsg | ResultsMsg | GameStateMsg | ErrorMsg;
 
 export interface KaraokeTypes {
   [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "AwardEntry".
+ */
+export interface AwardEntry {
+  title: string;
+  player_id: string;
+  name: string;
+  detail: string;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -70,6 +86,18 @@ export interface ClockPong {
 export interface ErrorMsg {
   type: "error";
   message: string;
+}
+/**
+ * Sent to phones and host whenever a game starts or ends.
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "GameStateMsg".
+ */
+export interface GameStateMsg {
+  type: "game";
+  mode: GameMode;
+  song_title: string | null;
+  simplified: boolean;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -151,6 +179,17 @@ export interface MicHello {
   name: string;
   color: string;
   player_id?: string | null;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "MicScoreMsg".
+ */
+export interface MicScoreMsg {
+  type: "score";
+  score: number;
+  rank: number;
+  players: number;
+  combo: number;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -238,6 +277,28 @@ export interface RemovePlayer {
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ResultsMsg".
+ */
+export interface ResultsMsg {
+  type: "results";
+  song_title: string;
+  simplified: boolean;
+  ranking: ScoreEntry[];
+  awards: AwardEntry[];
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ScoreEntry".
+ */
+export interface ScoreEntry {
+  player_id: string;
+  name: string;
+  color: string;
+  score: number;
+  combo: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "RoomMsg".
  */
 export interface RoomMsg {
@@ -246,6 +307,15 @@ export interface RoomMsg {
   mic_url: string;
   https: boolean;
   players: Player[];
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ScoresMsg".
+ */
+export interface ScoresMsg {
+  type: "scores";
+  simplified: boolean;
+  entries: ScoreEntry[];
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -287,6 +357,25 @@ export interface SongPatch {
 export interface SongUpdatedMsg {
   type: "song";
   song: Song;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "StartGame".
+ */
+export interface StartGame {
+  type?: "start_game";
+  song_id: string;
+  mode: GameMode;
+}
+/**
+ * End the current game. With publish=True the final results are computed and shown.
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "StopGame".
+ */
+export interface StopGame {
+  type?: "stop_game";
+  publish?: boolean;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
