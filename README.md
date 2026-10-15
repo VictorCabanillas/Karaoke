@@ -1,7 +1,24 @@
 # Karaoke entre amigos
 
 Karaoke para jugar en casa: la pantalla principal se abre en el navegador del portátil (conectable a la tele) y
-los móviles de los jugadores hacen de micrófono. El diseño completo está en [DISENO.md](DISENO.md).
+los móviles de los jugadores hacen de micrófono.
+
+## Instalación rápida
+
+**Windows:** doble clic en `setup.cmd` (o `.\setup.cmd` en una terminal). **macOS / Linux:** `./setup.sh`.
+
+El script instala lo que falte (uv, Node.js, ffmpeg y mkcert; en Windows con `winget`), las dependencias de Python
+con el procesado de canciones, compila el frontend y crea los certificados HTTPS. Se puede repetir sin problema.
+Opciones:
+
+| Windows | macOS / Linux | Para qué |
+|---|---|---|
+| `-NoProcessing` | `--no-processing` | Sin PyTorch/Demucs/Whisper (varios GB menos; sin separar voz ni puntuar afinación) |
+| `-NoCerts` | `--no-certs` | Sin HTTPS (los móviles no podrán usar el micrófono) |
+| `-DryRun` | `--dry-run` | Solo muestra lo que haría |
+
+Después: `uv run python -m server` y abre `https://127.0.0.1:8000/`. Las secciones siguientes explican cada paso por
+si prefieres hacerlo a mano.
 
 ## Requisitos
 
@@ -10,7 +27,7 @@ los móviles de los jugadores hacen de micrófono. El diseño completo está en 
 - `ffmpeg` (opcional pero recomendado: normaliza el volumen y permite formatos como `.wma`)
 - [`mkcert`](https://github.com/FiloSottile/mkcert) para usar los móviles como micrófono (necesitan HTTPS)
 
-## Instalación
+## Instalación manual
 
 ```sh
 uv sync          # dependencias de Python
@@ -112,8 +129,11 @@ Portátil y móviles tienen que estar en la misma Wi-Fi.
 
 1. En la pantalla principal aparece la **sala** con un código QR. Cada jugador lo escanea, escribe su nombre, elige
    un color y pulsa **Activar micrófono**. El móvil solo envía datos (tono y volumen), nunca audio.
-2. Antes de empezar, en **Calibración**: pedid silencio y pulsad **Calibrar ruido** (3 s). Si notáis que la voz va
-   retrasada respecto a la música, ajustad el **retraso del micrófono** (100 ms por defecto).
+2. Antes de empezar, en **Calibración**:
+   - **Calibrar ruido**: con la sala en silencio, 3 s para medir el ruido de fondo.
+   - **Medir retraso del micrófono**: aparece un círculo que late; canta «ta» con cada latido siguiendo el ritmo.
+     Mide el retraso propio de ese móvil (100 ms por defecto) para que la puntuación no te penalice por él.
+     También se puede ajustar a mano.
 3. Mientras suena una canción, la pantalla muestra un carril por jugador con su tono en vivo sobre la melodía de
    referencia (si la canción está procesada) y el móvil muestra la línea que toca cantar.
 
