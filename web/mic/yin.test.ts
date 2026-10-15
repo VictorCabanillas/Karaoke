@@ -26,15 +26,27 @@ describe("Yin", () => {
     expect(Math.abs(hzToMidi(result.f0!) - hzToMidi(220))).toBeLessThan(0.1);
   });
 
-  it("returns no pitch for noise", () => {
+  it("gives noise a low confidence (filtered out downstream)", () => {
     let seed = 1;
     const noise = new Float32Array(1024).map(() => {
       seed = (seed * 16807) % 2147483647;
       return (seed / 2147483647 - 0.5) * 0.5;
     });
     const result = yin.detect(noise);
-    expect(result.f0).toBeNull();
+    expect(result.confidence).toBeLessThan(0.5);
     expect(result.rms).toBeGreaterThan(0);
+  });
+
+  it("still finds the pitch of a breathy voice (tone + noise)", () => {
+    let seed = 7;
+    const breathy = tone(196, 24000, 1024, [1, 0.6, 0.3]).map((v) => {
+      seed = (seed * 16807) % 2147483647;
+      return v + (seed / 2147483647 - 0.5) * 0.35;
+    });
+    const result = yin.detect(breathy);
+    expect(result.f0).not.toBeNull();
+    expect(Math.abs(hzToMidi(result.f0!) - hzToMidi(196))).toBeLessThan(0.5);
+    expect(result.confidence).toBeGreaterThan(0.6);
   });
 
   it("returns no pitch for silence", () => {

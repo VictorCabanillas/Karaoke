@@ -189,6 +189,8 @@ class ScoreEntry(Model):
     color: str
     score: int
     combo: int
+    presence: float = 0.0  # share of the sung parts where the player's voice was detected (0..1)
+    accuracy: float | None = None  # pitch marks where they sang (0..1); None without reference melody
 
 
 class AwardEntry(Model):

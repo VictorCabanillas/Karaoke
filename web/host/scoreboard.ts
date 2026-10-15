@@ -40,6 +40,14 @@ export class Scoreboard {
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+/** "afinación 92% · presencia 81%": where the points went. */
+export function breakdown(e: ScoreEntry): string {
+  const parts = [];
+  if (e.accuracy !== null) parts.push(`afinación ${Math.round(e.accuracy * 100)}%`);
+  parts.push(`presencia ${Math.round(e.presence * 100)}%`);
+  return parts.join(" · ");
+}
+
 /** Final screen: ranking + fun awards. */
 export function showResults(results: ResultsMsg, onAgain: () => void, onExit: () => void): HTMLDialogElement {
   const dialog = h(
@@ -57,7 +65,7 @@ export function showResults(results: ResultsMsg, onAgain: () => void, onExit: ()
               { class: i === 0 ? "winner" : "" },
               h("span", { class: "medal" }, MEDALS[i] ?? `${i + 1}.`),
               h("span", { class: "dot", style: `background:${e.color}` }),
-              h("span", { class: "name" }, e.name),
+              h("span", { class: "name" }, e.name, h("small", { class: "hint breakdown" }, breakdown(e))),
               h("strong", null, e.score.toLocaleString("es-ES")),
             ),
           ),

@@ -303,6 +303,8 @@ export interface ScoreEntry {
   color: string;
   score: number;
   combo: number;
+  presence: number;
+  accuracy: number | null;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema

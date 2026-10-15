@@ -15,6 +15,9 @@ from server.models import Lyrics
 
 WINDOW_MS = 100
 MAX_SCORE = 10_000
+# Even the original vocal track is not detected in every sung window (breaths, consonants): singing
+# this share of the windows perfectly already earns the maximum score.
+COVERAGE_TOLERANCE = 0.9
 # Weights of a window's score.
 PITCH_WEIGHT = 0.7
 PRESENCE_WEIGHT = 0.3
@@ -121,7 +124,7 @@ class PlayerStats:
 class PlayerScorer:
     def __init__(self, reference: Reference):
         self.ref = reference
-        self.points_per_window = MAX_SCORE / max(1, reference.expected_count)
+        self.points_per_window = MAX_SCORE / max(1.0, reference.expected_count * COVERAGE_TOLERANCE)
         self.pending: dict[int, list[float | None]] = {}
         self.finalized_upto = 0  # windows below this index are scored
         self.stats = PlayerStats()
@@ -147,7 +150,7 @@ class PlayerScorer:
 
     @property
     def score(self) -> int:
-        return round(max(0.0, self.stats.score))
+        return round(min(MAX_SCORE, max(0.0, self.stats.score)))
 
     def _closest_target(self, index: int, sung: float) -> float | None:
         """Reference pitch around this window that is closest to what was sung (±1 window of slack)."""

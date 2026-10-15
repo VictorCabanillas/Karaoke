@@ -141,6 +141,8 @@ class GameController:
                     color=conn.player.color,
                     score=scorer.score,
                     combo=scorer.stats.combo,
+                    presence=round(scorer.stats.presence, 3),
+                    accuracy=round(scorer.stats.accuracy, 3) if not game.simplified else None,
                 )
             )
         out.sort(key=lambda e: e.score, reverse=True)

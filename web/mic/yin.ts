@@ -70,10 +70,10 @@ export class Yin {
       }
     }
     if (tau < 0) {
-      // No dip under the threshold: report the global minimum with its (low) confidence.
-      let best = this.tauMin;
-      for (let t = this.tauMin + 1; t <= this.tauMax; t++) if (d[t] < d[best]) best = t;
-      return { f0: null, confidence: Math.max(0, 1 - d[best]), rms };
+      // No dip under the threshold (breathy voice, vibrato, background music): fall back to the global
+      // minimum and let its confidence decide. Discarding these frames lost over half of real singing.
+      tau = this.tauMin;
+      for (let t = this.tauMin + 1; t <= this.tauMax; t++) if (d[t] < d[tau]) tau = t;
     }
     // Parabolic interpolation around the minimum.
     let refined = tau;

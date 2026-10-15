@@ -190,6 +190,18 @@ class MicSession {
         mine
           ? h("p", { class: "big-number" }, `${position + 1}º · ${mine.score.toLocaleString("es-ES")} puntos`)
           : h("p", null, "Esta vez no has puntuado."),
+        mine
+          ? h(
+              "p",
+              { class: "hint" },
+              [
+                mine.accuracy !== null ? `afinación ${Math.round(mine.accuracy * 100)}%` : null,
+                `presencia ${Math.round(mine.presence * 100)}%`,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            )
+          : "",
         ...awards.map((a) => h("p", { class: "award" }, `🎖 ${a.title}: ${a.detail}`)),
       );
       this.results.hidden = false;

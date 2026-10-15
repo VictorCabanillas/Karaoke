@@ -72,6 +72,7 @@ def test_competition_with_lyrics_only_is_simplified_and_ranks_players(client):
             ranking = results["ranking"]
             assert [e["name"] for e in ranking] == ["Canta", "Calla"]
             assert ranking[0]["score"] > 5000 and ranking[1]["score"] == 0
+            assert ranking[0]["accuracy"] is None and ranking[0]["presence"] > 0.5
             assert any(a["title"] == "Pulmones de acero" and a["name"] == "Canta" for a in results["awards"])
             assert receive_until(singer, "results")["ranking"][0]["player_id"] == p1["id"]
             assert receive_until(host, "game")["mode"] == "free"
@@ -97,6 +98,7 @@ def test_competition_uses_melody_when_processed(client):
             timeline.send(wrong, range(0, SONG_END, 20), 370.0)  # F#4: a tritone away
             ranking = timeline.finish()["ranking"]
             assert ranking[0]["name"] == "Afinado" and ranking[0]["score"] > 9500
+            assert ranking[0]["accuracy"] > 0.95 and ranking[1]["accuracy"] < 0.2
             assert ranking[1]["score"] < 4000
         finally:
             ws1.__exit__(None, None, None)
