@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
+import segno
 from fastapi import FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from processing import audio as audio_tools
@@ -17,20 +19,22 @@ from processing import device as device_mod
 from processing.lrclib import LrclibClient, find_lyrics, record_to_lyrics, to_candidate
 from processing.metadata import read_metadata
 from processing.queue import Pipeline, ProcessingQueue
-from server.config import Settings, settings as default_settings
-from server import ws_host
+from server import ws_host, ws_mic
+from server.config import Settings, lan_ip, settings as default_settings
 from server.library import MELODY_FILE, Library
 from server.models import (
     ChooseLyrics,
     LrclibCandidate,
     Lyrics,
     Melody,
+    PlaybackState,
+    RoomMsg,
     Song,
     SongPatch,
     SongUpdatedMsg,
     SystemInfo,
 )
-from server.session import HostHub
+from server.session import HostHub, Room
 
 log = logging.getLogger("karaoke")
 
@@ -55,7 +59,17 @@ def create_app(
             pipeline=pipeline or Pipeline(config.whisper_model),
         )
         app.state.queue.start()
+        scheme = "https" if config.https else "http"
+        app.state.room = Room(
+            code=Room.load_or_create_code(config.data_dir / "room.txt"),
+            hub=app.state.hub,
+            mic_url=lambda code: f"{scheme}://{lan_ip()}:{config.public_port}/mic/?room={code}",
+            https=config.https,
+            default_latency_ms=config.default_mic_latency_ms,
+        )
+        app.state.room.start()
         yield
+        await app.state.room.stop()
         app.state.queue.stop()
         app.state.library.close()
 
@@ -64,6 +78,21 @@ def create_app(
     app.state.lrclib = lrclib or LrclibClient()
     app.state.hub = HostHub()
     app.include_router(ws_host.router)
+    app.include_router(ws_mic.router)
+
+    async def on_playback(state: PlaybackState) -> None:
+        room: Room = app.state.room
+        if state.song_id != room.clock.song_id:
+            song = app.state.library.get(state.song_id) if state.song_id else None
+            lyrics = app.state.library.load_lyrics(song.id) if song else None
+            room.set_song(song.title if song else None, lyrics)
+        room.clock.update(state)
+
+    async def on_host_message(msg) -> None:
+        pass
+
+    app.state.on_playback = on_playback
+    app.state.on_host_message = on_host_message
 
     def library(request: Request) -> Library:
         return request.app.state.library
@@ -215,6 +244,20 @@ def create_app(
             raise HTTPException(404, "Letra no encontrada en LRCLIB")
         lyrics = record_to_lyrics(record, song.duration_s)
         return library(request).save_lyrics(song_id, lyrics, instrumental=bool(record.get("instrumental"))) or song
+
+    # --- room ---------------------------------------------------------------
+
+    @app.get("/api/room")
+    def room_state(request: Request) -> RoomMsg:
+        return request.app.state.room.state()
+
+    @app.get("/api/room/qr.svg", include_in_schema=False)
+    def room_qr(request: Request) -> Response:
+        buf = io.BytesIO()
+        segno.make(request.app.state.room.mic_url, error="m").save(
+            buf, kind="svg", scale=8, border=2, dark="#12101c", light="#ffffff"
+        )
+        return Response(buf.getvalue(), media_type="image/svg+xml", headers={"Cache-Control": "no-store"})
 
     # --- frontend -----------------------------------------------------------
 

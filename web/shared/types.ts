@@ -15,6 +15,26 @@ export type SongOrigin = "file" | "spotify";
  * via the `definition` "SongStatus".
  */
 export type SongStatus = "imported" | "lyrics_ready" | "processing" | "processed" | "error";
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "MicToServer".
+ */
+export type MicToServer = MicHello | ClockPing | PitchBatch | MicCalibration;
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ServerToMic".
+ */
+export type ServerToMic = WelcomeMsg | ClockPong | MicStatusMsg | ErrorMsg;
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "HostToServer".
+ */
+export type HostToServer = ClockPing | PlaybackState | RemovePlayer;
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ServerToHost".
+ */
+export type ServerToHost = SongUpdatedMsg | RoomMsg | PitchLiveMsg | ClockPong;
 
 export interface KaraokeTypes {
   [k: string]: unknown;
@@ -25,6 +45,31 @@ export interface KaraokeTypes {
  */
 export interface ChooseLyrics {
   lrclib_id: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ClockPing".
+ */
+export interface ClockPing {
+  type?: "ping";
+  t0: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ClockPong".
+ */
+export interface ClockPong {
+  type: "pong";
+  t0: number;
+  t_server: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ErrorMsg".
+ */
+export interface ErrorMsg {
+  type: "error";
+  message: string;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -44,6 +89,16 @@ export interface Word {
   start_ms: number;
   end_ms: number;
   estimated: boolean;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "LivePitch".
+ */
+export interface LivePitch {
+  server_ms: number;
+  song_ms: number | null;
+  midi: number | null;
+  rms: number;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -77,6 +132,120 @@ export interface Lyrics {
 export interface Melody {
   hop_ms: number;
   midi: (number | null)[];
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "MicCalibration".
+ */
+export interface MicCalibration {
+  type?: "calibration";
+  noise_rms: number;
+  latency_ms: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "MicHello".
+ */
+export interface MicHello {
+  type?: "hello";
+  name: string;
+  color: string;
+  player_id?: string | null;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "MicStatusMsg".
+ */
+export interface MicStatusMsg {
+  type: "status";
+  song_title: string | null;
+  line: string | null;
+  next_line: string | null;
+  playing: boolean;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "PitchBatch".
+ */
+export interface PitchBatch {
+  type?: "pitch";
+  /**
+   * @maxItems 100
+   */
+  frames: PitchFrame[];
+}
+/**
+ * One analysis frame from a phone. `t` is already converted to the server clock (ms).
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "PitchFrame".
+ */
+export interface PitchFrame {
+  t: number;
+  f0: number | null;
+  conf: number;
+  rms: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "PitchLiveMsg".
+ */
+export interface PitchLiveMsg {
+  type: "pitch_live";
+  players: PlayerPitch[];
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "PlayerPitch".
+ */
+export interface PlayerPitch {
+  player_id: string;
+  frames: LivePitch[];
+}
+/**
+ * Where the song is. position_ms was heard at server_ms (server clock).
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "PlaybackState".
+ */
+export interface PlaybackState {
+  type?: "playback";
+  song_id: string | null;
+  playing: boolean;
+  position_ms: number;
+  server_ms: number;
+  offset_ms?: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "Player".
+ */
+export interface Player {
+  id: string;
+  name: string;
+  color: string;
+  connected: boolean;
+  calibrated: boolean;
+  latency_ms: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "RemovePlayer".
+ */
+export interface RemovePlayer {
+  type?: "remove_player";
+  player_id: string;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "RoomMsg".
+ */
+export interface RoomMsg {
+  type: "room";
+  code: string;
+  mic_url: string;
+  https: boolean;
+  players: Player[];
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -130,4 +299,13 @@ export interface SystemInfo {
   ffmpeg: boolean;
   https: boolean;
   spotify_configured: boolean;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "WelcomeMsg".
+ */
+export interface WelcomeMsg {
+  type: "welcome";
+  room: string;
+  player: Player;
 }

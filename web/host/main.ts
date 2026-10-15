@@ -5,9 +5,11 @@ import { $, h } from "../shared/dom";
 import type { Song } from "../shared/types";
 import { LibraryView } from "./library";
 import { PlayScreen } from "./play";
+import { RoomPanel } from "./room-panel";
 
 const app = $("#app");
 const library = new LibraryView((song) => (location.hash = `#/play/${song.id}`));
+const roomPanel = new RoomPanel();
 let screen: PlayScreen | null = null;
 
 async function route(): Promise<void> {
@@ -25,7 +27,10 @@ async function route(): Promise<void> {
     }
     return;
   }
-  app.replaceChildren(h("header", { class: "app-header" }, h("h1", null, "🎤 Karaoke entre amigos")), library.el);
+  app.replaceChildren(
+    h("header", { class: "app-header" }, h("h1", null, "🎤 Karaoke entre amigos")),
+    h("div", { class: "home" }, library.el, roomPanel.el),
+  );
   await library.refresh();
 }
 

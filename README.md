@@ -8,6 +8,7 @@ los móviles de los jugadores hacen de micrófono. El diseño completo está en 
 - Python 3.11+ y [uv](https://docs.astral.sh/uv/)
 - Node.js LTS y npm
 - `ffmpeg` (opcional pero recomendado: normaliza el volumen y permite formatos como `.wma`)
+- [`mkcert`](https://github.com/FiloSottile/mkcert) para usar los móviles como micrófono (necesitan HTTPS)
 
 ## Instalación
 
@@ -27,6 +28,28 @@ uv sync --extra processing
 
 En Windows y Linux se instala PyTorch con CUDA (funciona también sin GPU). La primera vez que se procesa una canción
 se descargan los modelos (Demucs ~80 MB, Whisper `medium` ~1,5 GB con GPU o `small` ~500 MB en CPU).
+
+### HTTPS para los móviles
+
+Los navegadores de los móviles solo dejan usar el micrófono en páginas HTTPS. Una vez:
+
+```sh
+mkcert -install                          # el portátil confía en la CA local
+uv run python scripts/make_certs.py      # crea certs/cert.pem y certs/key.pem
+```
+
+Con certificados en `certs/` el servidor arranca en HTTPS automáticamente. Si cambia la IP del portátil en la red,
+vuelve a ejecutar `make_certs.py`.
+
+Para que los móviles no muestren el aviso de «conexión no segura», instala en ellos la CA de mkcert (el archivo
+`rootCA.pem` de la carpeta que indica `mkcert -CAROOT`; pásalo por correo, AirDrop, cable...):
+
+- **Android:** Ajustes → Seguridad → Más ajustes de seguridad → Cifrado y credenciales → Instalar un certificado →
+  Certificado de CA → elige `rootCA.pem` (el nombre exacto del menú cambia según el fabricante).
+- **iPhone:** abre el archivo y acepta instalar el perfil (Ajustes → Perfil descargado → Instalar). Después:
+  Ajustes → General → Información → Ajustes de confianza de certificados → activa la CA de mkcert.
+
+Si no la instalas, también vale con aceptar el aviso del navegador la primera vez («Avanzado» → «Continuar»).
 
 ## Arrancar
 
@@ -58,6 +81,20 @@ Abre la URL que muestra Vite (`/host/`).
 
 Atajo: barra espaciadora = reproducir / pausar.
 
+### Móviles como micrófono
+
+Portátil y móviles tienen que estar en la misma Wi-Fi.
+
+1. En la pantalla principal aparece la **sala** con un código QR. Cada jugador lo escanea, escribe su nombre, elige
+   un color y pulsa **Activar micrófono**. El móvil solo envía datos (tono y volumen), nunca audio.
+2. Antes de empezar, en **Calibración**: pedid silencio y pulsad **Calibrar ruido** (3 s). Si notáis que la voz va
+   retrasada respecto a la música, ajustad el **retraso del micrófono** (100 ms por defecto).
+3. Mientras suena una canción, la pantalla muestra un carril por jugador con su tono en vivo sobre la melodía de
+   referencia (si la canción está procesada) y el móvil muestra la línea que toca cantar.
+
+Consejos: cantad con el móvil cerca de la boca y con la música a un volumen moderado (cada móvil oye también los
+altavoces y a los demás).
+
 ### Procesado
 
 Con el procesado instalado, cada canción importada entra en la cola y se procesa en segundo plano, de una en una
@@ -83,6 +120,8 @@ Variables de entorno opcionales:
 | `KARAOKE_DATA_DIR` | `data/` | Biblioteca, canciones y caché |
 | `KARAOKE_AUTO_PROCESS` | `1` | Encolar automáticamente cada canción importada |
 | `KARAOKE_WHISPER_MODEL` | automático | Modelo de Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`) |
+| `KARAOKE_PUBLIC_PORT` | `KARAOKE_PORT` | Puerto que aparece en el QR (p. ej. `5173` con `npm run dev`) |
+| `KARAOKE_MIC_LATENCY_MS` | `100` | Retraso del micrófono por defecto |
 
 ## Tests
 

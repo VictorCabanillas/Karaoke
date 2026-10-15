@@ -288,3 +288,105 @@ body:has(.play-screen) #app {
   text-align: center;
   color: var(--muted);
 }
+
+/* --- room / players ----------------------------------------------------- */
+
+#app:has(.home) {
+  max-width: 1300px;
+}
+
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .home {
+    grid-template-columns: 1fr;
+  }
+}
+
+.room-panel {
+  position: sticky;
+  top: 1rem;
+  padding: 1.2rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.room-panel h2 {
+  margin-top: 0;
+}
+
+.room-code {
+  color: var(--accent);
+  letter-spacing: 0.15em;
+}
+
+.room-panel .qr {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.room-panel .url {
+  display: block;
+  word-break: break-all;
+}
+
+.warning {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgb(251 191 36 / 0.12);
+  color: var(--warn);
+  font-size: 0.9rem;
+}
+
+.players {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.players li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.players li.offline {
+  opacity: 0.5;
+}
+
+.players .dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  flex: none;
+}
+
+.players .name {
+  flex: 1;
+  font-weight: 600;
+}
+
+button.icon {
+  padding: 0.1em 0.5em;
+  background: transparent;
+  color: var(--muted);
+}
+
+/* --- pitch lanes -------------------------------------------------------- */
+
+.lanes canvas {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius);
+  background: var(--surface);
+}

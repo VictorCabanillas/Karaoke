@@ -1,7 +1,9 @@
 import { api, ApiError } from "../shared/api";
 import { debounce, formatTime, h } from "../shared/dom";
-import type { Lyrics, Song } from "../shared/types";
+import type { Lyrics, Melody, Song } from "../shared/types";
 import { AudioEngine } from "./audio";
+import { hostSocket, reportPlayback, room, startPlaybackReports } from "./connection";
+import { PitchLanes } from "./lanes";
 import { LYRICS_LABELS } from "./library";
 import { LyricsView } from "./lyrics-view";
 import type { Playback } from "./playback";
@@ -11,12 +13,14 @@ const OFFSET_STEP_MS = 50;
 
 export class PlayScreen {
   readonly el: HTMLElement;
-  private playback: Playback | null = null;
+  protected playback: Playback | null = null;
   private lyricsView: LyricsView | null = null;
+  protected lanes = new PitchLanes();
   private frame = 0;
-  private stage = h("div", { class: "stage" }, h("p", { class: "loading" }, "Cargando…"));
+  private cleanups: (() => void)[] = [];
+  protected stage = h("div", { class: "stage" }, h("p", { class: "loading" }, "Cargando…"));
   private playButton = h("button", { class: "play", disabled: true }, "▶");
-  private seek = h("input", { type: "range", min: "0", max: "1000", value: "0", class: "seek" });
+  protected seek = h("input", { type: "range", min: "0", max: "1000", value: "0", class: "seek" });
   private timeLabel = h("span", { class: "time" }, "0:00 / 0:00");
   private offsetLabel = h("output");
   private banner = h("div", { class: "banner", hidden: true });
@@ -36,11 +40,13 @@ export class PlayScreen {
     this.instrumentalOnly,
     " Solo instrumental",
   );
-  private voiceHint = h("span", { class: "hint small" }, "Control de voz disponible cuando termine el procesado");
+  protected voiceHint = h("span", { class: "hint small" }, "Control de voz disponible cuando termine el procesado");
+  protected controls: HTMLElement;
+  protected header: HTMLElement;
   private seeking = false;
 
   constructor(
-    private song: Song,
+    protected song: Song,
     private onExit: () => void,
   ) {
     const offset = h("input", {
@@ -52,6 +58,7 @@ export class PlayScreen {
     });
     const saveOffset = debounce((value: number) => {
       void api.patch<Song>(`/api/songs/${song.id}`, { offset_ms: value });
+      this.report();
     }, 400);
     offset.addEventListener("input", () => {
       this.song.offset_ms = Number(offset.value);
@@ -67,37 +74,38 @@ export class PlayScreen {
       if (this.playback) this.playback.seek((Number(this.seek.value) / 1000) * this.playback.durationMs());
     });
 
-    this.el = h(
-      "section",
-      { class: "play-screen" },
-      h(
-        "header",
-        { class: "play-header" },
-        h("button", { class: "secondary", onclick: () => this.onExit() }, "← Biblioteca"),
-        h("div", { class: "title" }, h("strong", null, song.title), h("span", null, song.artist)),
-      ),
-      this.banner,
-      this.stage,
-      h(
-        "footer",
-        { class: "controls" },
-        this.playButton,
-        this.seek,
-        this.timeLabel,
-        h(
-          "label",
-          { class: "control", title: "Positivo: la letra aparece más tarde. Negativo: aparece antes." },
-          "Desfase de la letra ",
-          offset,
-          this.offsetLabel,
-        ),
-        this.voiceControl,
-        this.instrumentalControl,
-        this.voiceHint,
-      ),
+    this.header = h(
+      "header",
+      { class: "play-header" },
+      h("button", { class: "secondary", onclick: () => this.onExit() }, "← Biblioteca"),
+      h("div", { class: "title" }, h("strong", null, song.title), h("span", null, song.artist)),
     );
+    this.controls = h(
+      "footer",
+      { class: "controls" },
+      this.playButton,
+      this.seek,
+      this.timeLabel,
+      h(
+        "label",
+        { class: "control", title: "Positivo: la letra aparece más tarde. Negativo: aparece antes." },
+        "Desfase de la letra ",
+        offset,
+        this.offsetLabel,
+      ),
+      this.voiceControl,
+      this.instrumentalControl,
+      this.voiceHint,
+    );
+    this.el = h("section", { class: "play-screen" }, this.header, this.banner, this.stage, this.lanes.el, this.controls);
     this.onKey = this.onKey.bind(this);
     document.addEventListener("keydown", this.onKey);
+
+    if (room) this.lanes.setPlayers(room.players);
+    this.cleanups.push(
+      hostSocket.on("room", (msg) => this.lanes.setPlayers(msg.players)),
+      hostSocket.on("pitch_live", (msg) => this.lanes.push(msg)),
+    );
   }
 
   async start(): Promise<void> {
@@ -111,6 +119,9 @@ export class PlayScreen {
       this.showBanner(`⚠ ${LYRICS_LABELS.whisper} (puede contener errores)`);
     }
     this.lyricsView = new LyricsView(lyrics);
+    if (this.song.has_melody) {
+      this.lanes.setMelody(await api.get<Melody>(`/api/songs/${this.song.id}/melody`).catch(() => null));
+    }
 
     try {
       this.playback = await this.createPlayback();
@@ -118,7 +129,12 @@ export class PlayScreen {
       this.stage.replaceChildren(h("p", { class: "error" }, `No se pudo cargar el audio: ${(err as Error).message}`));
       return;
     }
-    this.playback.onStateChange = () => this.updateButton();
+    this.playback.onStateChange = () => {
+      this.updateButton();
+      this.report();
+    };
+    this.playback.onEnded = () => this.onEnded();
+    this.cleanups.push(startPlaybackReports(() => [this.song.id, this.playback, this.song.offset_ms]));
     this.stage.replaceChildren(this.lyricsView.el);
     this.playButton.disabled = false;
     this.loop();
@@ -136,6 +152,12 @@ export class PlayScreen {
       await engine.load("original", `/api/songs/${this.song.id}/audio/original`);
     }
     return engine;
+  }
+
+  protected onEnded(): void {}
+
+  protected report(): void {
+    reportPlayback(this.song.id, this.playback, this.song.offset_ms);
   }
 
   private enableVoiceControls(engine: AudioEngine): void {
@@ -163,7 +185,7 @@ export class PlayScreen {
     this.voiceHint.remove();
   }
 
-  private toggle(): void {
+  protected toggle(): void {
     if (!this.playback) return;
     if (this.playback.isPlaying()) this.playback.pause();
     else void this.playback.play();
@@ -185,7 +207,7 @@ export class PlayScreen {
     this.offsetLabel.textContent = `${v > 0 ? "+" : ""}${(v / 1000).toFixed(2)} s`;
   }
 
-  private showBanner(text: string): void {
+  protected showBanner(text: string): void {
     this.banner.textContent = text;
     this.banner.hidden = false;
   }
@@ -196,6 +218,7 @@ export class PlayScreen {
     const pos = this.playback.positionMs();
     const dur = this.playback.durationMs();
     this.lyricsView?.update(pos - this.song.offset_ms);
+    this.lanes.draw(this.playback.isPlaying() ? pos : null);
     if (!this.seeking && dur > 0) this.seek.value = String(Math.round((pos / dur) * 1000));
     this.timeLabel.textContent = `${formatTime(pos / 1000)} / ${formatTime(dur / 1000)}`;
   };
@@ -203,6 +226,8 @@ export class PlayScreen {
   dispose(): void {
     cancelAnimationFrame(this.frame);
     document.removeEventListener("keydown", this.onKey);
+    this.cleanups.forEach((fn) => fn());
     this.playback?.dispose();
+    reportPlayback(null, null);
   }
 }

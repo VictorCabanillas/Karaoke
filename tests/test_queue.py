@@ -116,8 +116,9 @@ def test_process_endpoint_and_melody(settings):
             assert app.state.queue.wait_idle(5)
             seen = []
             while not seen or seen[-1]["song"]["status"] != "processed":
-                seen.append(ws.receive_json())
-            assert all(m["type"] == "song" for m in seen)
+                msg = ws.receive_json()
+                if msg["type"] == "song":
+                    seen.append(msg)
         melody = client.get(f"/api/songs/{song['id']}/melody").json()
         assert melody == {"hop_ms": 10, "midi": [None, 60.0, 60.5, None]}
         assert client.get(f"/api/songs/{song['id']}/audio/vocals").status_code == 200

@@ -1,0 +1,159 @@
+#app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+h1 {
+  margin: 0.5rem 0;
+}
+
+.room-code {
+  color: var(--accent);
+  letter-spacing: 0.15em;
+}
+
+.join label,
+.join .label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--muted);
+}
+
+.join input {
+  font-size: 1.2rem;
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+}
+
+.swatch {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  padding: 0;
+  border: 3px solid transparent;
+}
+
+.swatch.selected {
+  border-color: var(--text);
+  transform: scale(1.08);
+}
+
+button.big {
+  font-size: 1.2rem;
+  padding: 0.9em 1.2em;
+}
+
+.me {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.3rem;
+}
+
+.me .dot {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+}
+
+.me .room-code {
+  margin-left: auto;
+  font-size: 1rem;
+}
+
+.connection {
+  margin: 0;
+}
+
+.mic-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.meter {
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.meter .level {
+  height: 100%;
+  width: 0;
+  background: var(--muted);
+  transition: width 60ms linear;
+}
+
+.meter.active .level {
+  background: linear-gradient(90deg, var(--ok), var(--accent));
+}
+
+.note {
+  text-align: center;
+  font-size: 3.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lyrics {
+  text-align: center;
+}
+
+.lyrics .line {
+  font-size: 1.4rem;
+  font-weight: 700;
+  min-height: 1.5em;
+  margin: 0.3rem 0;
+}
+
+.lyrics .next-line {
+  color: var(--muted);
+  margin: 0;
+}
+
+.settings {
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.settings summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.settings[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.settings .row {
+  justify-content: space-between;
+  color: var(--muted);
+}
+
+.settings input[type="number"] {
+  width: 6rem;
+  flex: none;
+}
+
+.tip {
+  text-align: center;
+}
