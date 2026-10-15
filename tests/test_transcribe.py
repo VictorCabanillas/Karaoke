@@ -53,3 +53,91 @@ def test_lyrics_from_words_splits_at_pauses():
     lyrics = lyrics_from_words(asr(("a", 0, 200), ("b", 200, 400), ("c", 2000, 2300)))
     assert lyrics.source == "whisper"
     assert [len(ln.words) for ln in lyrics.lines] == [2, 1]
+
+
+# --- quality control of Whisper output ---------------------------------------
+
+from processing.transcribe import (  # noqa: E402
+    fix_durations,
+    is_hallucination,
+    segment_score,
+    merge_candidates,
+    plan_clips,
+    uncovered_spans,
+)
+
+
+def w(text, start, end, p=0.9, first=False):
+    return AsrWord(text=text, start_ms=start, end_ms=end, probability=p, starts_segment=first)
+
+
+def test_hallucinations_are_detected():
+    assert is_hallucination("¡Suscríbete!")
+    assert is_hallucination("Gracias por ver el video")
+    assert is_hallucination("Subtítulos realizados por la comunidad de Amara.org")
+    assert not is_hallucination("la luna come queso azul")
+
+
+def test_segment_score_rejects_bad_segments():
+    good = [w("la", 0, 200), w("luna", 200, 600)]
+    assert segment_score(good) == 0.9
+    assert segment_score([w("la", 0, 200, p=0.1), w("luna", 200, 600, p=0.2)]) is None
+    collapsed = [w("bam", 1000, 1000), w("blom", 1000, 1010), w("run", 1010, 1500)]
+    assert segment_score(collapsed) is None
+    assert segment_score([w("¡Suscríbete!", 0, 900)]) is None
+    assert segment_score([]) is None
+
+
+def test_fix_durations_spreads_collapsed_words():
+    fixed = fix_durations([w("uno", 0, 300), w("dos", 300, 300), w("tres", 300, 300), w("cuatro", 900, 1200)])
+    assert [(x.start_ms, x.end_ms) for x in fixed][0] == (0, 300)
+    assert fixed[1].end_ms - fixed[1].start_ms >= 100 and fixed[2].end_ms <= 900
+    assert fixed[1].end_ms <= fixed[2].start_ms
+
+
+def test_plan_clips_cuts_at_pauses():
+    # 10 s voice, 3 s pause, 40 s voice with a short breath at 38 s
+    activity = [True] * 100 + [False] * 30 + [True] * 400
+    activity[130 + 250] = False
+    clips = plan_clips(activity)
+    assert clips[0] == (0, 10_000)
+    assert all(b - a <= 28_000 for a, b in clips)
+    assert clips[1] == (13_000, 38_000)  # cut at the breath, not at 41 s
+    assert clips[-1][1] == 53_000
+    assert plan_clips([False] * 50) == []
+
+
+def test_loops_and_symbol_only_words_are_rejected():
+    loop = [w(t, i * 300, i * 300 + 250) for i, t in enumerate(("bam " * 30).split())]
+    assert segment_score(loop) is None
+    assert segment_score([w("¡¡¡¡¡¡¡¡", 0, 500)]) is None
+
+
+def test_lines_follow_segments_and_punctuation():
+    words = [w("uno", 0, 200, first=True), w("dos", 200, 400), w("tres", 400, 600), w("cuatro,", 600, 800),
+             w("cinco", 800, 1000), w("seis", 1000, 1200, first=True), w("siete", 1200, 1400)]  # fmt: skip
+    lyrics = lyrics_from_words(words)
+    assert [[x.text for x in line.words] for line in lyrics.lines] == [
+        ["uno", "dos", "tres", "cuatro,"],
+        ["cinco", "seis", "siete"],
+    ]
+
+
+def test_merge_candidates_fills_gaps_from_other_attempts():
+    base = [[w("uno", 0, 500, p=0.95), w("dos", 500, 1000, p=0.95)], [w("tres", 1000, 1500, p=0.9)]]
+    other = [
+        [w("un", 0, 450, p=0.5)],  # overlaps the base: ignored
+        [w("cinco", 4000, 4500, p=0.6), w("seis", 4500, 5000, p=0.6)],  # fills a gap
+    ]
+    merged = merge_candidates([other, base])
+    assert [x.text for x in merged] == ["uno", "dos", "tres", "cinco", "seis"]
+    assert merge_candidates([]) == []
+
+
+def test_uncovered_spans_finds_voiced_gaps():
+    activity = [False] * 10 + [True] * 100 + [False] * 10  # voice from 1 s to 11 s
+    words = [w("hola", 1000, 1500), w("mundo", 1500, 2000)]
+    assert uncovered_spans(words, activity) == [(2100, 11000)]
+    assert uncovered_spans(words, [False] * 10 + [True] * 25) == []  # under 3 s
+    breath = [True] * 20 + [False] * 5 + [True] * 20  # a 0.5 s breath does not split the span
+    assert uncovered_spans([], breath) == [(0, 4500)]

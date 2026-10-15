@@ -158,6 +158,10 @@ try {
         Write-Ok "Abre http://127.0.0.1:8000/ en el portátil (sin HTTPS los móviles no podrán usar el micrófono)."
     }
     Write-Ok "Para desinstalarlo todo: uninstall.cmd"
+    if ((Get-State) -match "^tool ") {
+        Write-Warn "Las terminales que ya estaban abiertas (también la de VS Code) no ven lo recién instalado:"
+        Write-Warn "ciérralas, o cierra y vuelve a abrir VS Code, antes de usar uv."
+    }
 } catch {
     Write-Host ""
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red

@@ -50,10 +50,10 @@ class Pipeline:
 
         return extract_melody(vocals, device, report)
 
-    def words(self, vocals: Path, device: str, report, prompt: str | None):
+    def words(self, vocals: Path, device: str, report, prompt: str | None, mix: Path | None = None):
         from processing.transcribe import transcribe_words
 
-        return transcribe_words(vocals, device, report, self.whisper_model, prompt)
+        return transcribe_words(vocals, device, report, self.whisper_model, prompt, mix)
 
 
 class ProcessingQueue:
@@ -172,9 +172,11 @@ class ProcessingQueue:
 
         song = lib.get(song_id)
         lyrics = lib.load_lyrics(song_id)
+        if lyrics is not None and lyrics.source == "whisper":
+            lyrics = None  # reprocessing: transcribe again instead of aligning the old transcription
         if not (song and song.instrumental and lyrics is None):
             report = self._step_reporter(song_id, STEP_WORDS)
-            asr = self.pipeline.words(vocals, device, report, lyrics_prompt(lyrics))
+            asr = self.pipeline.words(vocals, device, report, lyrics_prompt(lyrics), audio)
             duration_ms = round(song.duration_s * 1000) if song else None
             if lyrics is not None:
                 aligned = align_lyrics(lyrics, asr, duration_ms)

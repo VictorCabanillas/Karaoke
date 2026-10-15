@@ -165,6 +165,21 @@ export class LibraryView {
             song.status === "error" ? "Reintentar procesado" : "Procesar",
           )
         : null,
+      song.origin === "file" && song.status === "processed" && this.info?.processing_available
+        ? h(
+            "button",
+            {
+              class: "secondary",
+              title: "Vuelve a calcular la melodía y la letra (las pistas separadas se reutilizan)",
+              onclick: () => {
+                if (confirm(`¿Volver a procesar «${song.title}»? Se recalculan la melodía y la letra.`)) {
+                  void this.enqueue(song);
+                }
+              },
+            },
+            "Reprocesar",
+          )
+        : null,
       h(
         "button",
         {

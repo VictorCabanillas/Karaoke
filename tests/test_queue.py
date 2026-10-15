@@ -37,7 +37,8 @@ class FakePipeline(Pipeline):
             raise RuntimeError("boom")
         return {"hop_ms": 10, "midi": [None, 60.0, 60.5, None]}
 
-    def words(self, vocals: Path, device: str, report, prompt):
+    def words(self, vocals: Path, device: str, report, prompt, mix=None):
+        self.mix = mix
         report(1.0, "Transcribiendo la voz")
         return self.asr
 
@@ -128,3 +129,14 @@ def test_process_endpoint_and_melody(settings):
         assert final["lyrics_source"] == "lrclib_synced"
         info = client.get("/api/system").json()
         assert set(info) >= {"device", "processing_available", "ffmpeg", "https"}
+
+
+def test_reprocessing_transcribes_again_and_passes_the_mix(lib, tmp_path):
+    song_id = add_song(lib, tmp_path)
+    pipeline = FakePipeline([AsrWord("vieja", 0, 300)])
+    run(lib, pipeline, song_id)
+    assert lib.load_lyrics(song_id).lines[0].words[0].text == "vieja"
+    assert pipeline.mix.name == "original.wav"
+    pipeline.asr = [AsrWord("nueva", 0, 300)]
+    run(lib, pipeline, song_id)
+    assert lib.load_lyrics(song_id).lines[0].words[0].text == "nueva"
