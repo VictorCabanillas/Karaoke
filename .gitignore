@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Karaoke ---
+node_modules/
+web/dist/
+web/shared/schema.json
+data/
+certs/
