@@ -2,7 +2,8 @@
 
 The song is cut in 100 ms windows. With a reference melody (processed files) each window scores
 pitch (octave-independent) and presence; without it (Spotify, unprocessed files) only presence
-and a little pitch stability. Singing during long silences costs a few points.
+and a little pitch stability. Singing where nothing is sung earns nothing, but costs nothing either
+(it only counts for the "No puede parar" award).
 """
 
 from __future__ import annotations
@@ -28,9 +29,7 @@ FULL_MARKS_SEMITONES = 1.0
 ZERO_MARKS_SEMITONES = 3.0
 # Share of voiced frames in a window that counts as fully "present".
 PRESENCE_FULL = 0.5
-# Penalty (as a share of a window's points) for singing where the song is silent.
-SILENCE_PENALTY = 0.1
-# Windows this close to a sung window never get penalties (breaths, timing slack).
+# Windows this close to a sung window are not counted as "singing in a silence" (breaths, timing slack).
 NEUTRAL_WINDOWS = 3
 # A window with at least this score keeps the combo going.
 COMBO_THRESHOLD = 0.6
@@ -170,9 +169,7 @@ class PlayerScorer:
 
         if not self.ref.expected[index]:
             if voiced_share > 0.5 and not self.ref.neutral[index]:
-                stats.silence_violations += 1
-                stats.score -= SILENCE_PENALTY * self.points_per_window
-                stats.combo = 0
+                stats.silence_violations += 1  # no points lost: only for the fun award
             return
 
         stats.expected_windows += 1

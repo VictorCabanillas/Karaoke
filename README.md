@@ -180,7 +180,7 @@ altavoces y a los demás).
 - **Cantar** (karaoke libre): sin puntuación.
 - **Competir**: todos cantan a la vez y cada uno se puntúa por separado, hasta 10 000 puntos por canción.
   - Canción **procesada**: afinación (70 %, sin tener en cuenta la octava, así que voces graves y agudas puntúan
-    igual) + presencia y ritmo (30 %). Cantar en los silencios resta un poco.
+    igual) + presencia y ritmo (30 %). Cantar donde no hay letra no suma, pero tampoco resta.
   - Canción **sin procesar** (o de Spotify): *puntuación simplificada*, solo presencia y ritmo según la letra.
   - Marcador en vivo, racha 🔥, y al terminar la canción (o con **Terminar y ver resultados**) ranking con premios
     («Más afinado», «Más constante», «Pulmones de acero»...). Cada móvil ve su puesto y su puntuación.

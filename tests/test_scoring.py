@@ -120,3 +120,15 @@ def test_awards():
                     silence_violations=30)  # fmt: skip
     titles = {aw.title: aw.player_id for aw in awards({"a": a, "b": b})}
     assert titles == {"Más afinado": "a", "Más constante": "b", "Pulmones de acero": "b", "No puede parar": "b"}
+
+
+def test_singing_where_there_are_no_lyrics_neither_adds_nor_subtracts():
+    def good_plus_extra(t, ref, rng):
+        return ref + rng.uniform(-0.3, 0.3) if ref is not None else 64.0  # also sings in every silence
+
+    def only_in_silences(t, ref, rng):
+        return 64.0 if ref is None else None
+
+    assert simulate(melody(), good_plus_extra).score == simulate(melody(), good).score
+    extra = simulate(melody(), only_in_silences)
+    assert extra.score == 0 and extra.stats.silence_violations > 0
