@@ -28,7 +28,8 @@ class ProcessingError(Exception):
 class Pipeline:
     """The processing steps. Each heavy step is a method so tests can replace it."""
 
-    def __init__(self, whisper_model: str = ""):
+    def __init__(self, whisper_model: str | Callable[[], str] = ""):
+        # A callable is read at each job, so a model chosen in the settings applies to the next song.
         self.whisper_model = whisper_model
 
     def check(self) -> str:
@@ -53,7 +54,8 @@ class Pipeline:
     def words(self, vocals: Path, device: str, report, prompt: str | None, mix: Path | None = None):
         from processing.transcribe import transcribe_words
 
-        return transcribe_words(vocals, device, report, self.whisper_model, prompt, mix)
+        model = self.whisper_model() if callable(self.whisper_model) else self.whisper_model
+        return transcribe_words(vocals, device, report, model, prompt, mix)
 
 
 class ProcessingQueue:

@@ -5,7 +5,7 @@ TypeScript types are generated from these models (see scripts/gen_types.py).
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal, Union, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +24,7 @@ class InputModel(Model):
 # Type aliases that also get a named TypeScript type.
 TS_ALIASES = (
     "GameMode",
+    "WhisperModelName",
     "LyricsSource",
     "SongStatus",
     "SongOrigin",
@@ -296,12 +297,63 @@ class MicScoreMsg(Model):
     combo: int
 
 
+class SongRecord(Model):
+    """Best score ever on a song."""
+
+    song_id: str
+    song_title: str
+    name: str
+    color: str
+    score: int
+    played_at: float
+
+
 class ResultsMsg(Model):
     type: Literal["results"] = "results"
     song_title: str
     simplified: bool
     ranking: list[ScoreEntry]
     awards: list[AwardEntry]
+    # The song's record before this game, and whether the winner just beat it.
+    previous_record: SongRecord | None = None
+    new_record: bool = False
+
+
+class GameRecord(Model):
+    """A finished competition, as kept in the history."""
+
+    id: int
+    song_id: str
+    song_title: str
+    played_at: float
+    simplified: bool
+    ranking: list[ScoreEntry]
+    awards: list[AwardEntry]
+
+
+class PlayerRanking(Model):
+    name: str
+    color: str
+    games: int
+    wins: int
+    best_score: int
+    average_score: int
+
+
+class Rankings(Model):
+    players: list[PlayerRanking]
+    records: list[SongRecord]
+
+
+# Whisper models that can be chosen; "" = automatic (medium with GPU, small on CPU).
+WhisperModelName = Literal["", "tiny", "base", "small", "medium", "large-v3-turbo", "large-v3"]
+WHISPER_MODELS: tuple[str, ...] = get_args(WhisperModelName)
+
+
+class AppSettings(Model):
+    """Settings changed from the app (stored in data/settings.json)."""
+
+    whisper_model: WhisperModelName = ""
 
 
 class GameStateMsg(Model):

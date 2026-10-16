@@ -74,6 +74,10 @@ def test_competition_with_lyrics_only_is_simplified_and_ranks_players(client):
             assert ranking[0]["score"] > 5000 and ranking[1]["score"] == 0
             assert ranking[0]["accuracy"] is None and ranking[0]["presence"] > 0.5
             assert any(a["title"] == "Pulmones de acero" and a["name"] == "Canta" for a in results["awards"])
+            assert results["new_record"] and results["previous_record"] is None  # first game on this song
+            history = client.get("/api/history").json()
+            assert len(history) == 1 and history[0]["ranking"][0]["name"] == "Canta"
+            assert client.get("/api/rankings").json()["records"][0]["name"] == "Canta"
             assert receive_until(singer, "results")["ranking"][0]["player_id"] == p1["id"]
             assert receive_until(host, "game")["mode"] == "free"
         finally:

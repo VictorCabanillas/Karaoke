@@ -2,6 +2,11 @@
 
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "WhisperModelName".
+ */
+export type WhisperModelName = "" | "tiny" | "base" | "small" | "medium" | "large-v3-turbo" | "large-v3";
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "GameMode".
  */
 export type GameMode = "free" | "competition";
@@ -53,6 +58,15 @@ export interface AddSpotifyTrack {
   track_id: string;
 }
 /**
+ * Settings changed from the app (stored in data/settings.json).
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "AppSettings".
+ */
+export interface AppSettings {
+  whisper_model: WhisperModelName;
+}
+/**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "AwardEntry".
  */
@@ -102,6 +116,34 @@ export interface DownloadRequest {
 export interface ErrorMsg {
   type: "error";
   message: string;
+}
+/**
+ * A finished competition, as kept in the history.
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "GameRecord".
+ */
+export interface GameRecord {
+  id: number;
+  song_id: string;
+  song_title: string;
+  played_at: number;
+  simplified: boolean;
+  ranking: ScoreEntry[];
+  awards: AwardEntry[];
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "ScoreEntry".
+ */
+export interface ScoreEntry {
+  player_id: string;
+  name: string;
+  color: string;
+  score: number;
+  combo: number;
+  presence: number;
+  accuracy: number | null;
 }
 /**
  * Sent to phones and host whenever a game starts or ends.
@@ -308,6 +350,40 @@ export interface Player {
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "PlayerRanking".
+ */
+export interface PlayerRanking {
+  name: string;
+  color: string;
+  games: number;
+  wins: number;
+  best_score: number;
+  average_score: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "Rankings".
+ */
+export interface Rankings {
+  players: PlayerRanking[];
+  records: SongRecord[];
+}
+/**
+ * Best score ever on a song.
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "SongRecord".
+ */
+export interface SongRecord {
+  song_id: string;
+  song_title: string;
+  name: string;
+  color: string;
+  score: number;
+  played_at: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "RemovePlayer".
  */
 export interface RemovePlayer {
@@ -324,19 +400,8 @@ export interface ResultsMsg {
   simplified: boolean;
   ranking: ScoreEntry[];
   awards: AwardEntry[];
-}
-/**
- * This interface was referenced by `KaraokeTypes`'s JSON-Schema
- * via the `definition` "ScoreEntry".
- */
-export interface ScoreEntry {
-  player_id: string;
-  name: string;
-  color: string;
-  score: number;
-  combo: number;
-  presence: number;
-  accuracy: number | null;
+  previous_record: SongRecord | null;
+  new_record: boolean;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema

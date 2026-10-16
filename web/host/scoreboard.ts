@@ -55,6 +55,17 @@ export function showResults(results: ResultsMsg, onAgain: () => void, onExit: ()
     { class: "modal results" },
     h("h2", null, "🏆 Resultados"),
     h("p", { class: "hint" }, results.song_title, results.simplified ? " · puntuación simplificada" : ""),
+    results.new_record && results.ranking.length
+      ? h(
+          "p",
+          { class: "record" },
+          results.previous_record
+            ? `🏅 ¡Nuevo récord de la canción para ${results.ranking[0].name}! (antes: ${results.previous_record.score.toLocaleString("es-ES")} de ${results.previous_record.name})`
+            : `🏅 Primer récord de esta canción: ${results.ranking[0].name}`,
+        )
+      : results.previous_record
+        ? h("p", { class: "hint small" }, `Récord de la canción: ${results.previous_record.score.toLocaleString("es-ES")} (${results.previous_record.name})`)
+        : null,
     results.ranking.length
       ? h(
           "ol",

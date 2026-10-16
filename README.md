@@ -138,7 +138,24 @@ Abre la URL que muestra Vite (`/host/`).
 3. Pulsa **Cantar**. La línea actual se rellena palabra a palabra y debajo se ve la siguiente.
 4. Si la letra va adelantada o atrasada, corrígela con **Desfase de la letra** (±2 s, se guarda por canción).
 
-Atajo: barra espaciadora = reproducir / pausar.
+Atajos: barra espaciadora = reproducir / pausar; **F** = modo TV.
+
+### Modo TV
+
+**📺 Modo TV** (o la tecla F) pone la pantalla completa con la letra en grande. Los controles se esconden si no
+mueves el ratón y, mientras la canción está en pausa o entre canciones, aparece el QR con el código de la sala para
+que se una más gente. Esc lo quita.
+
+### Ranking e historial
+
+Cada partida de competición se guarda (`data/history.sqlite3`). En **🏆 Ranking** están las victorias, la mejor
+puntuación y la media de cada jugador (se reconocen por el nombre), el récord de cada canción y el historial de
+partidas. Al terminar una partida se avisa si alguien ha batido el récord de la canción.
+
+### Ajustes
+
+En **⚙ Ajustes**: el modelo de Whisper para las letras (de `tiny` a `large-v3`; se guarda en `data/settings.json`),
+**Reprocesar todas** las canciones (por ejemplo tras cambiar de modelo) y borrar el historial.
 
 ### Buscar y descargar canciones
 
@@ -164,7 +181,7 @@ Portátil y móviles tienen que estar en la misma Wi-Fi.
 
 1. En la pantalla principal aparece la **sala** con un código QR. Cada jugador lo escanea, escribe su nombre, elige
    un color y pulsa **Activar micrófono**. El móvil solo envía datos (tono y volumen), nunca audio.
-2. Antes de empezar, en **Calibración**:
+2. Antes de empezar, en **Calibración** (cada móvil la recuerda: al volver a conectarse se aplica sola):
    - **Calibrar ruido**: con la sala en silencio, 3 s para medir el ruido de fondo.
    - **Medir retraso del micrófono**: aparece un círculo que late; canta «ta» con cada latido siguiendo el ritmo.
      Mide el retraso propio de ese móvil (100 ms por defecto) para que la puntuación no te penalice por él.
@@ -213,7 +230,7 @@ Variables de entorno opcionales:
 | `KARAOKE_HOST` | `0.0.0.0` | Interfaz en la que escucha |
 | `KARAOKE_DATA_DIR` | `data/` | Biblioteca, canciones y caché |
 | `KARAOKE_AUTO_PROCESS` | `1` | Encolar automáticamente cada canción importada |
-| `KARAOKE_WHISPER_MODEL` | automático | Modelo de Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`) |
+| `KARAOKE_WHISPER_MODEL` | automático | Modelo de Whisper por defecto (en la app se cambia en **Ajustes**) |
 | `KARAOKE_PUBLIC_PORT` | `KARAOKE_PORT` | Puerto que aparece en el QR (p. ej. `5173` con `npm run dev`) |
 | `KARAOKE_MIC_LATENCY_MS` | `100` | Retraso del micrófono por defecto |
 | `KARAOKE_SPOTIFY_CLIENT_ID` | — | Client ID de la app de Spotify |

@@ -21,7 +21,17 @@ const SEND_EVERY_MS = 100;
 const CALIBRATION_MS = 3000;
 const MIN_CONFIDENCE = 0.6;
 const DEFAULT_GATE = 0.01;
-const STORAGE = { name: "karaoke.name", color: "karaoke.color", player: "karaoke.player", latency: "karaoke.latency" };
+// A "silence" louder than this means music or talking during calibration: a gate that high would hide
+// the voice itself (singing close to the phone is ~0.05–0.3 RMS).
+const MAX_GATE = 0.05;
+const STORAGE = {
+  name: "karaoke.name",
+  color: "karaoke.color",
+  player: "karaoke.player",
+  latency: "karaoke.latency",
+  // Noise gate measured on this phone: kept so the same device does not need to calibrate again.
+  gate: "karaoke.gate",
+};
 
 const app = $("#app");
 const room = (new URLSearchParams(location.search).get("room") ?? "").toUpperCase();
@@ -105,7 +115,8 @@ class MicSession {
   private wakeLock = new ScreenWakeLock();
   private player: Player | null = null;
   private pending: PitchFrame[] = [];
-  private gate = DEFAULT_GATE;
+  private gate = Math.min(MAX_GATE, Number(stored(STORAGE.gate)) || DEFAULT_GATE);
+  private savedCalibration = stored(STORAGE.gate) !== null;
   private latency = Number(stored(STORAGE.latency) ?? "100");
   private calibrating: number[] | null = null;
   private latencySamples: LevelSample[] | null = null;
@@ -155,8 +166,14 @@ class MicSession {
       this.player = msg.player;
       store(STORAGE.player, msg.player.id);
       this.renderHeader();
-      if (msg.player.calibrated) this.calibrateInfo.textContent = "Calibrado ✓";
-      this.sendCalibration(false);
+      if (msg.player.calibrated) {
+        this.calibrateInfo.textContent = "Calibrado ✓";
+        this.sendCalibration(false);
+      } else if (this.savedCalibration) {
+        // Same phone as before: reuse its calibration instead of asking for silence again.
+        this.sendCalibration(true);
+        this.calibrateInfo.textContent = `Calibración guardada ✓ (umbral ${this.gate.toFixed(3)}, retraso ${this.latency} ms). Recalibra si cambias de sitio.`;
+      }
     });
     this.socket.on("error", (msg) => {
       this.socket.close();
@@ -343,7 +360,13 @@ class MicSession {
         return;
       }
       const noise = samples[Math.floor(samples.length * 0.9)];
-      this.gate = Math.max(0.003, noise * 2);
+      const gate = Math.max(0.003, noise * 2);
+      if (gate > MAX_GATE) {
+        this.calibrateInfo.textContent =
+          "Hay demasiado ruido para calibrar (¿música o gente hablando?). Pide silencio y vuelve a intentarlo.";
+        return;
+      }
+      this.gate = gate;
       this.calibrateInfo.textContent = `Calibrado ✓ (umbral ${this.gate.toFixed(3)})`;
       this.sendCalibration(true);
     }, CALIBRATION_MS);
@@ -409,6 +432,10 @@ class MicSession {
   private sendCalibration(measured: boolean): void {
     if (!this.player || (!measured && !this.player.calibrated)) return;
     this.socket.send({ type: "calibration", noise_rms: Math.min(1, this.gate), latency_ms: Math.round(this.latency) });
-    if (measured) this.player.calibrated = true;
+    if (measured) {
+      this.player.calibrated = true;
+      this.savedCalibration = true;
+      store(STORAGE.gate, String(this.gate));
+    }
   }
 }

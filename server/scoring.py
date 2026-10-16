@@ -33,6 +33,8 @@ PRESENCE_FULL = 0.5
 NEUTRAL_WINDOWS = 3
 # A window with at least this score keeps the combo going.
 COMBO_THRESHOLD = 0.6
+# The "Más constante" award needs a streak of at least this many windows (2 s).
+MIN_COMBO_AWARD_WINDOWS = 20
 # Share of reference frames in a window that must be voiced for it to count as "sung".
 REF_VOICED_SHARE = 0.4
 
@@ -220,7 +222,7 @@ def awards(players: dict[str, PlayerStats]) -> list[Award]:
         pid, s = max(tuned.items(), key=lambda kv: kv[1].accuracy)
         out.append(Award("Más afinado", pid, f"{round(s.accuracy * 100)}% de notas en su sitio"))
     pid, s = max(players.items(), key=lambda kv: kv[1].best_combo)
-    if s.best_combo > 0:
+    if s.best_combo >= MIN_COMBO_AWARD_WINDOWS:
         out.append(Award("Más constante", pid, f"racha de {s.best_combo / 10:.1f} s seguidos"))
     pid, s = max(players.items(), key=lambda kv: kv[1].presence)
     if s.presence > 0:

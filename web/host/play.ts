@@ -9,6 +9,7 @@ import { LyricsView } from "./lyrics-view";
 import type { Playback } from "./playback";
 import { Scoreboard, showResults } from "./scoreboard";
 import { SpotifyPlayback } from "./spotify-playback";
+import { toggleTv, tvButton } from "./tv";
 
 const OFFSET_LIMIT_MS = 2000;
 const OFFSET_STEP_MS = 50;
@@ -20,6 +21,7 @@ export class PlayScreen {
   protected lanes = new PitchLanes();
   private scoreboard = new Scoreboard();
   private gameActive = false;
+  private join = h("aside", { class: "tv-join" });
   private finishButton = h("button", { class: "secondary", hidden: true }, "Terminar y ver resultados");
   private frame = 0;
   private cleanups: (() => void)[] = [];
@@ -91,6 +93,7 @@ export class PlayScreen {
         { class: "secondary small", title: "Corregir la letra", onclick: () => (location.hash = `#/edit/${song.id}`) },
         "✎ Letra",
       ),
+      tvButton(),
       this.finishButton,
     );
     this.finishButton.addEventListener("click", () => this.finishGame());
@@ -111,9 +114,11 @@ export class PlayScreen {
       this.instrumentalControl,
       this.voiceHint,
     );
+    this.renderJoin();
     this.el = h(
       "section",
       { class: "play-screen" },
+      this.join,
       this.header,
       this.banner,
       h("div", { class: "stage-row" }, this.stage, this.scoreboard.el),
@@ -125,7 +130,10 @@ export class PlayScreen {
 
     if (room) this.lanes.setPlayers(room.players);
     this.cleanups.push(
-      hostSocket.on("room", (msg) => this.lanes.setPlayers(msg.players)),
+      hostSocket.on("room", (msg) => {
+        this.lanes.setPlayers(msg.players);
+        this.renderJoin();
+      }),
       hostSocket.on("pitch_live", (msg) => this.lanes.push(msg)),
       hostSocket.on("game", (msg) => {
         this.gameActive = msg.mode === "competition";
@@ -311,14 +319,30 @@ export class PlayScreen {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (e.code === "Space" && !(e.target instanceof HTMLInputElement && e.target.type !== "range")) {
+    const typing = e.target instanceof HTMLInputElement && e.target.type !== "range";
+    if (e.code === "Space" && !typing) {
       e.preventDefault();
       this.toggle();
+    } else if (e.key.toLowerCase() === "f" && !typing && !e.ctrlKey && !e.metaKey) {
+      void toggleTv();
     }
   }
 
   private updateButton(): void {
-    this.playButton.textContent = this.playback?.isPlaying() ? "❚❚" : "▶";
+    const playing = this.playback?.isPlaying() ?? false;
+    this.playButton.textContent = playing ? "❚❚" : "▶";
+    this.el.classList.toggle("playing", playing);
+  }
+
+  /** Room QR shown in TV mode between songs (and while paused) so people can join. */
+  private renderJoin(): void {
+    if (!room) return;
+    const src = `/api/room/qr.svg?u=${encodeURIComponent(room.mic_url)}`;
+    this.join.replaceChildren(
+      h("img", { src, alt: "QR de la sala" }),
+      h("div", null, h("p", null, "¡Únete con el móvil!"), h("strong", { class: "room-code" }, room.code),
+        h("p", { class: "hint small" }, `${room.players.filter((p) => p.connected).length} conectados`)),  // prettier-ignore
+    );
   }
 
   private showOffset(): void {

@@ -26,19 +26,25 @@ from processing.queue import Pipeline, ProcessingQueue
 from server import downloads as downloads_mod
 from server import ws_host, ws_mic
 from server.config import Settings, lan_ip, settings as default_settings
+from server.app_settings import SettingsStore
 from server.game import GameController
+from server.history import History
 from server.spotify import SpotifyError, SpotifyService
 from server.library import MELODY_FILE, Library
 from server.models import (
     AddSpotifyTrack,
+    WHISPER_MODELS,
+    AppSettings,
     ChooseLyrics,
     DownloadRequest,
+    GameRecord,
     LrclibCandidate,
     Lyrics,
     LyricsText,
     Melody,
     OnlineTrack,
     PlaybackState,
+    Rankings,
     RoomMsg,
     Song,
     SongPatch,
@@ -95,10 +101,14 @@ def create_app(
         config.data_dir.mkdir(parents=True, exist_ok=True)
         app.state.hub.bind_loop()
         app.state.library = Library(config.data_dir)
+        # KARAOKE_WHISPER_MODEL is the default until a model is chosen in the settings.
+        env_model = config.whisper_model if config.whisper_model in WHISPER_MODELS else ""
+        app.state.settings_store = SettingsStore(config.data_dir / "settings.json", AppSettings(whisper_model=env_model))
+        app.state.history = History(config.data_dir / "history.sqlite3")
         app.state.queue = ProcessingQueue(
             app.state.library,
             on_update=lambda song: app.state.hub.broadcast_threadsafe(SongUpdatedMsg(song=song)),
-            pipeline=pipeline or Pipeline(config.whisper_model),
+            pipeline=pipeline or Pipeline(lambda: app.state.settings_store.get().whisper_model),
         )
         app.state.queue.start()
         if device_mod.processing_available():
@@ -112,7 +122,7 @@ def create_app(
             https=config.https,
             default_latency_ms=config.default_mic_latency_ms,
         )
-        app.state.game = GameController(app.state.room, app.state.library)
+        app.state.game = GameController(app.state.room, app.state.library, app.state.history)
         app.state.downloads = downloads_mod.DownloadManager(
             app.state.library, app.state.hub, import_audio, online_source
         )
@@ -126,6 +136,7 @@ def create_app(
         await app.state.room.stop()
         app.state.queue.stop(timeout=0 if busy else 5)
         app.state.library.close()
+        app.state.history.close()
         if busy and config.hard_exit:
             exit_now()
 
@@ -265,6 +276,17 @@ def create_app(
         if song.origin != "file":
             raise HTTPException(400, "Solo se pueden procesar archivos de audio")
         return request.app.state.queue.enqueue(song_id) or song
+
+    @app.post("/api/songs/process-all")
+    def process_all(request: Request) -> list[Song]:
+        """Queue every audio file again (e.g. after changing the transcription model)."""
+        if not device_mod.processing_available():
+            raise HTTPException(400, "El procesado no está instalado («uv sync» y reinicia el servidor)")
+        queued = []
+        for song in library(request).list():
+            if song.origin == "file" and song.has_audio and song.status not in ("processing", "downloading"):
+                queued.append(request.app.state.queue.enqueue(song.id) or song)
+        return queued
 
     @app.get("/api/songs/{song_id}/melody")
     def song_melody(request: Request, song_id: str) -> Melody:
@@ -465,6 +487,28 @@ def create_app(
         )
         request.app.state.downloads.start(song, body.video_id)
         return lib.get(song.id) or song
+
+    # --- settings, history and rankings ----------------------------------------
+
+    @app.get("/api/settings")
+    def read_settings(request: Request) -> AppSettings:
+        return request.app.state.settings_store.get()
+
+    @app.put("/api/settings")
+    def write_settings(request: Request, new: AppSettings) -> AppSettings:
+        return request.app.state.settings_store.update(new)
+
+    @app.get("/api/history")
+    def history(request: Request, limit: int = 100) -> list[GameRecord]:
+        return request.app.state.history.games(max(1, min(limit, 1000)))
+
+    @app.delete("/api/history", status_code=204)
+    def clear_history(request: Request) -> None:
+        request.app.state.history.clear()
+
+    @app.get("/api/rankings")
+    def rankings(request: Request) -> Rankings:
+        return request.app.state.history.rankings()
 
     # --- room ---------------------------------------------------------------
 

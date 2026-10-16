@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from server.history import History
 from server.library import MELODY_FILE, Library
 from server.models import (
     AwardEntry,
@@ -66,9 +67,10 @@ def build_reference(library: Library, song: Song) -> tuple[Reference, bool] | No
 
 
 class GameController:
-    def __init__(self, room: Room, library: Library):
+    def __init__(self, room: Room, library: Library, history: History | None = None):
         self.room = room
         self.library = library
+        self.history = history
         self.game: Game | None = None
         self._ticks = 0
         room.on_frame = self._on_frame
@@ -115,6 +117,12 @@ class GameController:
             else:
                 game.finalize(position)
             results = self.results(game)
+            if self.history is not None:
+                previous = self.history.song_record(game.song.id)
+                top = results.ranking[0].score if results.ranking else 0
+                results.previous_record = previous
+                results.new_record = top > 0 and top > (previous.score if previous else 0)
+                self.history.record(game.song.id, results)
             await self.room.hub.broadcast(results)
             await self._send_mics(results)
         await self._announce(GameStateMsg(mode="free", song_title=None, simplified=False))

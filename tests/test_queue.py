@@ -193,3 +193,20 @@ def test_processing_fixes_shifted_lyrics_and_leaves_a_note(lib, tmp_path):
     # Choosing other lyrics clears the note of the old ones.
     lib.save_lyrics(song_id, invented_lyrics())
     assert lib.get(song_id).lyrics_note is None
+
+
+def test_pipeline_reads_the_model_at_each_job():
+    chosen = ["small"]
+    pipeline = Pipeline(lambda: chosen[0])
+    seen = []
+    import processing.transcribe as transcribe
+
+    original = transcribe.transcribe_words
+    transcribe.transcribe_words = lambda vocals, device, report, model, prompt, mix: seen.append(model) or []
+    try:
+        pipeline.words(Path("v.wav"), "cpu", lambda *a: None, None)
+        chosen[0] = "large-v3"
+        pipeline.words(Path("v.wav"), "cpu", lambda *a: None, None)
+    finally:
+        transcribe.transcribe_words = original
+    assert seen == ["small", "large-v3"]
