@@ -639,3 +639,55 @@ button.small {
   padding: 0.3em 0.8em;
   font-size: 0.85rem;
 }
+
+/* --- online search ------------------------------------------------------ */
+
+.online-panel {
+  margin: 1rem 0;
+  padding: 0.8rem 1.1rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.online-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent-2);
+}
+
+.online-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.online-results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.online-results li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.online-results img {
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.online-results .info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.badge.status.downloading {
+  color: var(--accent-2);
+}

@@ -58,6 +58,10 @@ class Library:
             for name, kind in _COLUMNS.items():
                 if name not in existing:
                     self._db.execute(f"ALTER TABLE songs ADD COLUMN {name} {kind}")
+            self._db.execute(
+                "UPDATE songs SET status = 'error', error = 'Descarga interrumpida: bórrala y vuelve a buscarla',"
+                " progress = 0, progress_label = '' WHERE status = 'downloading'"
+            )
             # Jobs interrupted by a restart go back to the queue-able state.
             self._db.execute(
                 "UPDATE songs SET status = CASE WHEN lyrics_source IS NULL THEN 'imported' ELSE 'lyrics_ready' END,"
@@ -75,6 +79,7 @@ class Library:
         data = {k: row[k] for k in row.keys() if k in Song.model_fields}
         for flag in ("instrumental", "has_stems", "has_melody"):
             data[flag] = bool(data[flag])
+        data["has_audio"] = bool(row["audio_file"]) or row["origin"] == "spotify"
         return Song(**data)
 
     def new_id(self) -> str:
@@ -85,7 +90,7 @@ class Library:
 
     def add(self, song: Song, audio_file: str | None = None) -> Song:
         song.created_at = song.created_at or time.time()
-        data = song.model_dump()
+        data = song.model_dump(exclude={"has_audio"})
         data["audio_file"] = audio_file
         with self._lock, self._db:
             keys = ", ".join(data)

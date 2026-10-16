@@ -19,7 +19,7 @@ export type SongOrigin = "file" | "spotify";
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "SongStatus".
  */
-export type SongStatus = "imported" | "lyrics_ready" | "processing" | "processed" | "error";
+export type SongStatus = "downloading" | "imported" | "lyrics_ready" | "processing" | "processed" | "error";
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "MicToServer".
@@ -85,6 +85,15 @@ export interface ClockPong {
   type: "pong";
   t0: number;
   t_server: number;
+}
+/**
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "DownloadRequest".
+ */
+export interface DownloadRequest {
+  video_id: string;
+  title?: string;
+  channel?: string;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -218,6 +227,19 @@ export interface MicStatusMsg {
   line: string | null;
   next_line: string | null;
   playing: boolean;
+}
+/**
+ * A search result that can be downloaded.
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "OnlineTrack".
+ */
+export interface OnlineTrack {
+  id: string;
+  title: string;
+  channel: string;
+  duration_s: number | null;
+  thumbnail: string | null;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -358,6 +380,7 @@ export interface Song {
   has_melody: boolean;
   spotify_uri: string | null;
   created_at: number;
+  has_audio: boolean;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
@@ -437,6 +460,7 @@ export interface SystemInfo {
   ffmpeg: boolean;
   https: boolean;
   spotify_configured: boolean;
+  downloads_available: boolean;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema

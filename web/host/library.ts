@@ -3,9 +3,11 @@ import { formatTime, h } from "../shared/dom";
 import type { GameMode, LyricsSource, Song, SongStatus, SystemInfo } from "../shared/types";
 import { hostSocket } from "./connection";
 import { openLyricsSearch } from "./lyrics-search";
+import { OnlinePanel } from "./online-panel";
 import { SpotifyPanel } from "./spotify-panel";
 
 export const STATUS_LABELS: Record<SongStatus, string> = {
+  downloading: "descargando",
   imported: "importada",
   lyrics_ready: "letra lista",
   processing: "procesando",
@@ -34,6 +36,7 @@ export class LibraryView {
   private songs: Song[] = [];
   private info: SystemInfo | null = null;
   private spotify = new SpotifyPanel((song) => this.updateSong(song));
+  private online = new OnlinePanel((song) => this.updateSong(song));
 
   constructor(private onPlay: (song: Song, mode: GameMode) => void) {
     const fileInput = h("input", {
@@ -71,6 +74,7 @@ export class LibraryView {
       h("div", { class: "row spread" }, h("h2", null, "Biblioteca"), this.processAll),
       this.system,
       drop,
+      this.online.el,
       this.spotify.el,
       this.message,
       this.list,
@@ -84,6 +88,7 @@ export class LibraryView {
       this.songs = songs;
       this.info = info;
       void this.spotify.refresh();
+      this.online.setAvailable(info.downloads_available);
       this.renderSystem();
       this.render();
     } catch (err) {
@@ -113,7 +118,13 @@ export class LibraryView {
   }
 
   private canProcess(song: Song): boolean {
-    return song.origin === "file" && song.status !== "processing" && song.status !== "processed";
+    return (
+      song.origin === "file" &&
+      song.has_audio &&
+      song.status !== "processing" &&
+      song.status !== "processed" &&
+      song.status !== "downloading"
+    );
   }
 
   private async enqueue(song: Song): Promise<void> {
@@ -143,6 +154,20 @@ export class LibraryView {
   }
 
   protected actions(song: Song): (HTMLElement | null)[] {
+    const remove = h(
+      "button",
+      {
+        class: "danger",
+        onclick: async () => {
+          if (!confirm(`¿Eliminar «${song.title}» de la biblioteca?`)) return;
+          await api.delete(`/api/songs/${song.id}`);
+          this.songs = this.songs.filter((s) => s.id !== song.id);
+          this.render();
+        },
+      },
+      "Eliminar",
+    );
+    if (!song.has_audio) return [remove]; // downloading, or the download failed
     return [
       h("button", { onclick: () => this.onPlay(song, "free") }, "Cantar"),
       h(
@@ -193,19 +218,7 @@ export class LibraryView {
         song.lyrics_source ? "Cambiar letra" : "Buscar letra",
       ),
       h("button", { class: "secondary", onclick: () => (location.hash = `#/edit/${song.id}`) }, "Editar letra"),
-      h(
-        "button",
-        {
-          class: "danger",
-          onclick: async () => {
-            if (!confirm(`¿Eliminar «${song.title}» de la biblioteca?`)) return;
-            await api.delete(`/api/songs/${song.id}`);
-            this.songs = this.songs.filter((s) => s.id !== song.id);
-            this.render();
-          },
-        },
-        "Eliminar",
-      ),
+      remove,
     ];
   }
 
@@ -225,7 +238,7 @@ export class LibraryView {
         ? "instrumental"
         : "sin letra";
     const progress =
-      song.status === "processing"
+      song.status === "processing" || song.status === "downloading"
         ? h(
             "div",
             { class: "progress" },

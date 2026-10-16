@@ -69,7 +69,7 @@ class LrclibCandidate(Model):
 
 # --- Songs ------------------------------------------------------------------
 
-SongStatus = Literal["imported", "lyrics_ready", "processing", "processed", "error"]
+SongStatus = Literal["downloading", "imported", "lyrics_ready", "processing", "processed", "error"]
 SongOrigin = Literal["file", "spotify"]
 
 
@@ -91,6 +91,7 @@ class Song(Model):
     has_melody: bool = False
     spotify_uri: str | None = None
     created_at: float = 0.0
+    has_audio: bool = True  # False while downloading or if the download failed
 
 
 class SongPatch(InputModel):
@@ -144,6 +145,22 @@ class AddSpotifyTrack(InputModel):
     track_id: str = Field(pattern=r"^[A-Za-z0-9]{10,40}$")
 
 
+class OnlineTrack(Model):
+    """A search result that can be downloaded."""
+
+    id: str
+    title: str
+    channel: str
+    duration_s: float | None
+    thumbnail: str | None
+
+
+class DownloadRequest(InputModel):
+    video_id: str = Field(pattern=r"^[A-Za-z0-9_-]{11}$")
+    title: str = ""
+    channel: str = ""
+
+
 class SystemInfo(Model):
     device: str
     processing_available: bool
@@ -151,6 +168,7 @@ class SystemInfo(Model):
     ffmpeg: bool
     https: bool
     spotify_configured: bool
+    downloads_available: bool = False
 
 
 # --- Players ----------------------------------------------------------------

@@ -12,6 +12,8 @@ dependencies = [
     "mutagen>=1.47",
     "python-multipart>=0.0.9",
     "segno>=1.6",
+    # Search and download songs from the library (YouTube); updated often, keep it current.
+    "yt-dlp>=2025.1.1",
 ]
 
 [project.optional-dependencies]

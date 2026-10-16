@@ -138,6 +138,24 @@ Abre la URL que muestra Vite (`/host/`).
 
 Atajo: barra espaciadora = reproducir / pausar.
 
+### Buscar y descargar canciones
+
+En **Buscar canciones en internet** (biblioteca) escribe artista y canción: busca en YouTube y **Descargar** baja
+solo el audio a la biblioteca, con su progreso, y sigue el mismo camino que un archivo subido (letra de LRCLIB y
+procesado). Usa [yt-dlp](https://github.com/yt-dlp/yt-dlp), que se instala con las dependencias (`uv sync`). Si
+YouTube cambia algo y deja de funcionar, actualízalo con `uv lock --upgrade-package yt-dlp && uv sync`.
+Úsalo solo para uso privado y con música que tengas derecho a usar.
+
+### Corregir la letra
+
+**Editar letra** (en la biblioteca o con **✎ Letra** mientras se canta) abre el editor con la canción sonando:
+
+- Cambia el texto de cada línea. Si la línea mantiene el número de palabras, conserva sus tiempos exactos.
+- Ajusta el inicio de cada línea con **−/+** (décimas) o **⏱** (momento actual); añade o borra líneas.
+- **Modo sincronizar**: reproduce y pulsa **Enter** justo cuando empieza cada línea.
+- **Pegar letra completa**: pega la letra buena y, si la canción se puede procesar, se sincroniza sola con la voz
+  (Whisper la alinea en unos minutos). Si no, quedará sin tiempos: sincronízala con Enter y guarda.
+
 ### Móviles como micrófono
 
 Portátil y móviles tienen que estar en la misma Wi-Fi.

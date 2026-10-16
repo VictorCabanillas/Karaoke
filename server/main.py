@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import shutil
@@ -20,6 +21,7 @@ from processing.lrc import plain_lyrics
 from processing.lrclib import LrclibClient, find_lyrics, record_to_lyrics, to_candidate
 from processing.metadata import read_metadata
 from processing.queue import Pipeline, ProcessingQueue
+from server import downloads as downloads_mod
 from server import ws_host, ws_mic
 from server.config import Settings, lan_ip, settings as default_settings
 from server.game import GameController
@@ -28,10 +30,12 @@ from server.library import MELODY_FILE, Library
 from server.models import (
     AddSpotifyTrack,
     ChooseLyrics,
+    DownloadRequest,
     LrclibCandidate,
     Lyrics,
     LyricsText,
     Melody,
+    OnlineTrack,
     PlaybackState,
     RoomMsg,
     Song,
@@ -51,11 +55,16 @@ log = logging.getLogger("karaoke")
 ALLOWED_EXTENSIONS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm", ".wma"}
 
 
+class ImportError_(Exception):
+    """The audio file cannot be used (message for the user)."""
+
+
 def create_app(
     config: Settings | None = None,
     lrclib: LrclibClient | None = None,
     pipeline: Pipeline | None = None,
     spotify: SpotifyService | None = None,
+    online_source: downloads_mod.YouTubeSource | None = None,
 ) -> FastAPI:
     config = config or default_settings
 
@@ -79,8 +88,13 @@ def create_app(
             default_latency_ms=config.default_mic_latency_ms,
         )
         app.state.game = GameController(app.state.room, app.state.library)
+        app.state.downloads = downloads_mod.DownloadManager(
+            app.state.library, app.state.hub, import_audio, online_source
+        )
+        app.state.downloads.bind_loop()
         app.state.room.start()
         yield
+        app.state.downloads.shutdown()
         await app.state.room.stop()
         app.state.queue.stop()
         app.state.library.close()
@@ -121,10 +135,10 @@ def create_app(
             raise HTTPException(404, "Canción no encontrada")
         return song
 
-    async def attach_lyrics(request: Request, song: Song) -> Song:
-        lib = library(request)
+    async def attach_lyrics(song: Song) -> Song:
+        lib: Library = app.state.library
         try:
-            record = await find_lyrics(request.app.state.lrclib, song.title, song.artist, song.album, song.duration_s)
+            record = await find_lyrics(app.state.lrclib, song.title, song.artist, song.album, song.duration_s)
         except httpx.HTTPError as exc:
             log.warning("LRCLIB lookup failed for %s: %s", song.id, exc)
             return song
@@ -132,6 +146,36 @@ def create_app(
             return song
         lyrics = record_to_lyrics(record, song.duration_s)
         return lib.save_lyrics(song.id, lyrics, instrumental=bool(record.get("instrumental"))) or song
+
+    async def import_audio(song_id: str, original: Path, filename: str, hint: dict | None = None) -> Song:
+        """Shared by uploads and downloads: metadata, normalization, lyrics lookup, processing queue."""
+        lib: Library = app.state.library
+        hint = hint or {}
+        meta = read_metadata(original, filename)
+        audio_file = original.name
+        normalized = original.parent / "audio.mp3"
+        # ffmpeg can take a while: never block the event loop (phones stay connected meanwhile).
+        if await asyncio.to_thread(audio_tools.normalize, original, normalized):
+            audio_file = normalized.name
+        elif original.suffix.lower() not in audio_tools.BROWSER_FRIENDLY:
+            raise ImportError_(f"Para usar archivos {original.suffix.lower()} hace falta instalar ffmpeg")
+        fields = dict(
+            title=hint.get("title") or meta.title,
+            artist=hint.get("artist") or meta.artist,
+            album=hint.get("album") or meta.album,
+            duration_s=meta.duration_s or hint.get("duration") or 0.0,
+        )
+        if lib.get(song_id) is None:
+            song = lib.add(Song(id=song_id, **fields), audio_file=audio_file)
+        else:
+            song = lib.update(
+                song_id, **fields, audio_file=audio_file, status="imported", progress=0.0, progress_label="", error=None
+            )
+        song = await attach_lyrics(song)
+        if config.auto_process and device_mod.processing_available():
+            song = app.state.queue.enqueue(song.id) or song
+        await app.state.hub.broadcast(SongUpdatedMsg(song=song))
+        return song
 
     # --- songs --------------------------------------------------------------
 
@@ -150,25 +194,12 @@ def create_app(
         folder.mkdir(parents=True, exist_ok=True)
         original = folder / f"original{ext}"
         with original.open("wb") as out:
-            shutil.copyfileobj(file.file, out)
-
-        meta = read_metadata(original, file.filename)
-        audio_file = original.name
-        normalized = folder / "audio.mp3"
-        if audio_tools.normalize(original, normalized):
-            audio_file = normalized.name
-        elif ext not in audio_tools.BROWSER_FRIENDLY:
+            await asyncio.to_thread(shutil.copyfileobj, file.file, out)
+        try:
+            return await import_audio(song_id, original, file.filename or original.name)
+        except ImportError_ as exc:
             shutil.rmtree(folder, ignore_errors=True)
-            raise HTTPException(400, f"Para usar archivos {ext} hace falta instalar ffmpeg")
-
-        song = lib.add(
-            Song(id=song_id, title=meta.title, artist=meta.artist, album=meta.album, duration_s=meta.duration_s),
-            audio_file=audio_file,
-        )
-        song = await attach_lyrics(request, song)
-        if config.auto_process and device_mod.processing_available():
-            song = request.app.state.queue.enqueue(song.id) or song
-        return song
+            raise HTTPException(400, str(exc)) from exc
 
     @app.get("/api/songs/{song_id}")
     def read_song(request: Request, song_id: str) -> Song:
@@ -223,6 +254,7 @@ def create_app(
             ffmpeg=audio_tools.ffmpeg_path() is not None,
             https=config.https,
             spotify_configured=request.app.state.spotify.configured,
+            downloads_available=online_source is not None or downloads_mod.available(),
         )
 
     # --- lyrics -------------------------------------------------------------
@@ -364,7 +396,41 @@ def create_app(
                 spotify_uri=track.uri,
             )
         )
-        return await attach_lyrics(request, song)
+        return await attach_lyrics(song)
+
+    # --- online search & download --------------------------------------------
+
+    def require_downloads() -> None:
+        if online_source is None and not downloads_mod.available():
+            raise HTTPException(503, "Falta yt-dlp: ejecuta «uv sync» (o setup) y reinicia el servidor")
+
+    @app.get("/api/online/search")
+    async def online_search(request: Request, q: str) -> list[OnlineTrack]:
+        require_downloads()
+        if not q.strip():
+            return []
+        try:
+            return await request.app.state.downloads.search(q.strip())
+        except Exception as exc:  # network errors, YouTube changes...
+            log.warning("Online search failed: %s", exc)
+            raise HTTPException(502, f"La búsqueda falló: {exc}") from exc
+
+    @app.post("/api/online/download")
+    def online_download(request: Request, body: DownloadRequest) -> Song:
+        require_downloads()
+        lib = library(request)
+        artist, title = downloads_mod.guess_artist_title(body.title, body.channel)
+        song = lib.add(
+            Song(
+                id=lib.new_id(),
+                title=title or body.title or "Descargando…",
+                artist=artist,
+                status="downloading",
+                progress_label="En cola",
+            )
+        )
+        request.app.state.downloads.start(song, body.video_id)
+        return lib.get(song.id) or song
 
     # --- room ---------------------------------------------------------------
 
