@@ -127,6 +127,7 @@ class DownloadManager:
         self.source = source or YouTubeSource()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="download")
         self._loop: asyncio.AbstractEventLoop | None = None
+        self.busy = False
 
     def bind_loop(self) -> None:
         self._loop = asyncio.get_running_loop()
@@ -146,6 +147,13 @@ class DownloadManager:
             self.hub.broadcast_threadsafe(SongUpdatedMsg(song=song))
 
     def _run(self, song_id: str, video_id: str) -> None:
+        self.busy = True
+        try:
+            self._download(song_id, video_id)
+        finally:
+            self.busy = False
+
+    def _download(self, song_id: str, video_id: str) -> None:
         if self.library.get(song_id) is None:
             return  # deleted while queued
         folder = self.library.song_dir(song_id)

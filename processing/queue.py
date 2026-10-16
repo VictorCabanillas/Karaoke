@@ -77,10 +77,14 @@ class ProcessingQueue:
             self._thread = threading.Thread(target=self._run, name="processing", daemon=True)
             self._thread.start()
 
-    def stop(self) -> None:
+    @property
+    def busy(self) -> bool:
+        return self.current is not None
+
+    def stop(self, timeout: float = 5.0) -> None:
         if self._thread is not None:
             self._jobs.put(None)
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=timeout)
             self._thread = None
 
     def pending(self) -> list[str]:

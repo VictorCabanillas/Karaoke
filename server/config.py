@@ -29,6 +29,8 @@ class Settings:
     default_mic_latency_ms: int = field(default_factory=lambda: int(_env("MIC_LATENCY_MS", "100")))
     # Queue every imported file for processing automatically (when the processing extras are installed).
     auto_process: bool = field(default_factory=lambda: _env("AUTO_PROCESS", "1") not in ("0", "false", "no"))
+    # End the process at once on shutdown when background work is running (set by `python -m server`).
+    hard_exit: bool = field(default_factory=lambda: _env("HARD_EXIT", "0") == "1")
     # Whisper model sizes; empty means "pick automatically from the device".
     whisper_model: str = field(default_factory=lambda: _env("WHISPER_MODEL", ""))
     spotify_client_id: str = field(default_factory=lambda: _env("SPOTIFY_CLIENT_ID", ""))

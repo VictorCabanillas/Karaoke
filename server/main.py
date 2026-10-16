@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import os
+import sys
 import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -55,6 +57,25 @@ log = logging.getLogger("karaoke")
 ALLOWED_EXTENSIONS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm", ".wma"}
 
 
+def exit_now() -> None:
+    """End the process immediately, skipping the interpreter's teardown.
+
+    A Demucs/Whisper job on the GPU or a running download cannot be interrupted, and on Windows exiting
+    normally while one runs hangs forever while the CUDA libraries unload ("Shutting down" never ends).
+    By the time this is called everything is saved and closed.
+    """
+    log.warning("Trabajo en segundo plano interrumpido: se retomará al volver a arrancar el servidor")
+    logging.shutdown()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        kernel32.TerminateProcess(kernel32.GetCurrentProcess(), 0)
+    os._exit(0)
+
+
 class ImportError_(Exception):
     """The audio file cannot be used (message for the user)."""
 
@@ -79,6 +100,9 @@ def create_app(
             pipeline=pipeline or Pipeline(config.whisper_model),
         )
         app.state.queue.start()
+        if device_mod.processing_available():
+            for song_id in app.state.library.interrupted:
+                app.state.queue.enqueue(song_id)
         scheme = "https" if config.https else "http"
         app.state.room = Room(
             code=Room.load_or_create_code(config.data_dir / "room.txt"),
@@ -94,10 +118,13 @@ def create_app(
         app.state.downloads.bind_loop()
         app.state.room.start()
         yield
+        busy = app.state.queue.busy or app.state.downloads.busy
         app.state.downloads.shutdown()
         await app.state.room.stop()
-        app.state.queue.stop()
+        app.state.queue.stop(timeout=0 if busy else 5)
         app.state.library.close()
+        if busy and config.hard_exit:
+            exit_now()
 
     app = FastAPI(title="Karaoke entre amigos", lifespan=lifespan)
     app.state.config = config

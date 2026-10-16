@@ -62,7 +62,10 @@ class Library:
                 "UPDATE songs SET status = 'error', error = 'Descarga interrumpida: bórrala y vuelve a buscarla',"
                 " progress = 0, progress_label = '' WHERE status = 'downloading'"
             )
-            # Jobs interrupted by a restart go back to the queue-able state.
+            # Jobs interrupted by a restart go back to the queue-able state (and are queued again on start).
+            self.interrupted = [
+                r["id"] for r in self._db.execute("SELECT id FROM songs WHERE status = 'processing' ORDER BY created_at")
+            ]
             self._db.execute(
                 "UPDATE songs SET status = CASE WHEN lyrics_source IS NULL THEN 'imported' ELSE 'lyrics_ready' END,"
                 " progress = 0, progress_label = '' WHERE status = 'processing'"

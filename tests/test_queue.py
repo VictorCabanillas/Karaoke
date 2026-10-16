@@ -155,3 +155,21 @@ def test_pasted_plain_lyrics_are_aligned_and_melody_is_reused(lib, tmp_path):
     lyrics = lib.load_lyrics(song_id)
     assert lib.get(song_id).status == "processed"
     assert lyrics.source == "lrclib_aligned" and lyrics.lines[0].start_ms == 500
+
+
+def test_jobs_interrupted_by_a_shutdown_resume_on_start(settings, monkeypatch):
+    from processing import device as device_mod
+
+    settings.data_dir.mkdir(parents=True)
+    lib = Library(settings.data_dir)
+    song_id = add_song(lib, settings.data_dir)
+    lib.update(song_id, status="processing", progress=0.4, progress_label="Separando voz e instrumental")
+    lib.close()
+
+    monkeypatch.setattr(device_mod, "missing_modules", lambda: [])
+    from tests.conftest import FakeLrclib
+
+    app = create_app(settings, lrclib=FakeLrclib(), pipeline=FakePipeline())
+    with TestClient(app):
+        assert app.state.queue.wait_idle(5)
+        assert app.state.library.get(song_id).status == "processed"

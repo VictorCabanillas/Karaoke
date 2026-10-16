@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 
 import uvicorn
 
@@ -23,6 +24,9 @@ def main() -> None:
         print("  AVISO: sin certificados en certs/ los móviles no podrán usar el micrófono.")
         print("         Genera certificados con: uv run python scripts/make_certs.py\n")
 
+    # Shutting down while a song is processed must not hang (see server.main.exit_now).
+    os.environ["KARAOKE_HARD_EXIT"] = "1"  # for the --reload worker process
+    settings.hard_exit = True
     uvicorn.run(
         "server.main:create_app",
         factory=True,
