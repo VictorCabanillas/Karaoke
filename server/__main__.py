@@ -10,6 +10,8 @@ import uvicorn
 
 from server.config import lan_ip, settings
 
+SHUTDOWN_TIMEOUT_S = 3
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Karaoke entre amigos")
@@ -35,6 +37,9 @@ def main() -> None:
         reload=args.reload,
         ssl_certfile=str(settings.cert_file) if settings.https else None,
         ssl_keyfile=str(settings.key_file) if settings.https else None,
+        # A phone that went to sleep never completes the TLS close: without a limit, Ctrl+C would wait
+        # forever at "Waiting for connections to close".
+        timeout_graceful_shutdown=SHUTDOWN_TIMEOUT_S,
     )
 
 
