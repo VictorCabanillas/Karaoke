@@ -84,9 +84,9 @@ fi
 step "Dependencias de Python"
 if [ "$PROCESSING" -eq 1 ]; then
   echo "    Incluye el procesado de canciones (PyTorch, Demucs, Whisper): puede tardar y ocupar varios GB."
-  run uv sync --extra processing
-else
   run uv sync
+else
+  run uv sync --no-group processing
 fi
 
 step "Frontend"

@@ -125,10 +125,10 @@ try {
 
     Write-Step "Dependencias de Python"
     if ($NoProcessing) {
-        Invoke-Checked "uv" @("sync")
+        Invoke-Checked "uv" @("sync", "--no-group", "processing")
     } else {
         Write-Host "    Incluye el procesado de canciones (PyTorch con CUDA, Demucs, Whisper): puede tardar y ocupar varios GB."
-        Invoke-Checked "uv" @("sync", "--extra", "processing")
+        Invoke-Checked "uv" @("sync")
     }
 
     Write-Step "Frontend"

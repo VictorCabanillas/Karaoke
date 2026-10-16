@@ -141,6 +141,15 @@ export class PitchLanes {
       ctx.fillText(player.name, 14, top + LANE_HEIGHT / 2, LABEL_WIDTH - 18);
     });
 
+    if (usingSong && !this.melody) {
+      ctx.fillStyle = "rgba(242,238,252,0.55)";
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "top";
+      ctx.fillText("Sin melodía de referencia: procesa la canción para verla", width - 10, 6);
+      ctx.textAlign = "left";
+    }
+
     // "Now" marker.
     ctx.strokeStyle = "rgba(255,79,154,0.8)";
     ctx.lineWidth = 2;

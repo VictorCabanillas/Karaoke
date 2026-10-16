@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 from functools import lru_cache
 
-# Modules needed for the processing pipeline (installed with `uv sync --extra processing`).
+# Modules needed for the processing pipeline (dependency group "processing", installed by `uv sync`).
 REQUIRED_MODULES = ("numpy", "soundfile", "librosa", "torch", "demucs", "faster_whisper")
 
 

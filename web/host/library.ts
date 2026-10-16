@@ -111,7 +111,7 @@ export class LibraryView {
     const parts = [
       info.processing_available
         ? `Procesado de canciones: ${device}${info.device === "cpu" ? " (varios minutos por canción)" : ""}`
-        : `Procesado no instalado (falta: ${info.missing_modules.join(", ")}). Instálalo con «uv sync --extra processing».`,
+        : `Procesado no instalado (falta: ${info.missing_modules.join(", ")}). Instálalo con «uv sync» y reinicia el servidor.`,
       info.ffmpeg ? null : "ffmpeg no encontrado: no se normaliza el volumen.",
     ];
     this.system.textContent = parts.filter(Boolean).join(" · ");

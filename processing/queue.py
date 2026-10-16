@@ -36,7 +36,7 @@ class Pipeline:
         if missing:
             raise ProcessingError(
                 "Faltan dependencias de procesado (" + ", ".join(missing) + "). "
-                "Instálalas con: uv sync --extra processing"
+                "Instálalas con: uv sync (y reinicia el servidor)"
             )
         return device_mod.detect_device()
 

@@ -850,6 +850,7 @@ wheels = [
 name = "karaoke"
 version = "0.1.0"
 source = { virtual = "." }
+default-groups = ["dev", "processing"]
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
@@ -861,7 +862,12 @@ dependencies = [
     { name = "yt-dlp" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
+dev = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pytest" },
+]
 processing = [
     { name = "demucs", version = "4.0.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
     { name = "demucs", version = "4.1.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
@@ -878,40 +884,34 @@ processing = [
     { name = "torchcrepe" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "pytest" },
-]
-
 [package.metadata]
 requires-dist = [
-    { name = "demucs", marker = "extra == 'processing'", specifier = ">=4.0.1" },
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "faster-whisper", marker = "extra == 'processing'", specifier = ">=1.0" },
     { name = "httpx", specifier = ">=0.27" },
-    { name = "librosa", marker = "extra == 'processing'", specifier = ">=0.10" },
     { name = "mutagen", specifier = ">=1.47" },
-    { name = "numpy", marker = "extra == 'processing'", specifier = ">=1.26" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "segno", specifier = ">=1.6" },
-    { name = "soundfile", marker = "extra == 'processing'", specifier = ">=0.12" },
-    { name = "torch", marker = "(sys_platform == 'linux' and extra == 'processing') or (sys_platform == 'win32' and extra == 'processing')", specifier = ">=2.5,<2.9", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'processing'", specifier = ">=2.5,<2.9" },
-    { name = "torchaudio", marker = "(sys_platform == 'linux' and extra == 'processing') or (sys_platform == 'win32' and extra == 'processing')", specifier = ">=2.5,<2.9", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torchaudio", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'processing'", specifier = ">=2.5,<2.9" },
-    { name = "torchcrepe", marker = "extra == 'processing'", specifier = ">=0.0.23" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
     { name = "yt-dlp", specifier = ">=2025.1.1" },
 ]
-provides-extras = ["processing"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "pytest", specifier = ">=8" },
+]
+processing = [
+    { name = "demucs", specifier = ">=4.0.1" },
+    { name = "faster-whisper", specifier = ">=1.1" },
+    { name = "librosa", specifier = ">=0.10" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "soundfile", specifier = ">=0.12" },
+    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.5,<2.9" },
+    { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.5,<2.9", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torchaudio", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.5,<2.9" },
+    { name = "torchaudio", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.5,<2.9", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torchcrepe", specifier = ">=0.0.23" },
 ]
 
 [[package]]

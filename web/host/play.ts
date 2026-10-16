@@ -1,6 +1,6 @@
 import { api, ApiError } from "../shared/api";
 import { debounce, formatTime, h } from "../shared/dom";
-import type { GameMode, Lyrics, Melody, Song } from "../shared/types";
+import type { GameMode, Lyrics, Melody, Song, SystemInfo } from "../shared/types";
 import { AudioEngine } from "./audio";
 import { hostSocket, reportPlayback, room, startPlaybackReports } from "./connection";
 import { PitchLanes } from "./lanes";
@@ -139,6 +139,50 @@ export class PlayScreen {
         showResults(msg, () => this.restart(), () => this.onExit());
       }),
       hostSocket.on("error", (msg) => this.showBanner(`⚠ ${msg.message}`)),
+      hostSocket.on("song", (msg) => {
+        if (msg.song.id !== this.song.id) return;
+        const finished = msg.song.status === "processed" && this.song.status !== "processed";
+        this.song.status = msg.song.status;
+        if (finished) {
+          this.voiceHint.replaceChildren(
+            "Procesado terminado. ",
+            h("button", { class: "secondary small", onclick: () => location.reload() }, "Recargar"),
+            " para usar el control de voz y la melodía.",
+          );
+        } else if (msg.song.status === "processing") {
+          this.voiceHint.textContent = `Procesando (${msg.song.progress_label || "en cola"}): control de voz y melodía al terminar`;
+        }
+      }),
+    );
+  }
+
+  /** Why the voice controls / melody are not available, and how to get them. */
+  private async explainMissingProcessing(): Promise<void> {
+    if (this.song.origin !== "file" || this.song.has_stems) return;
+    if (this.song.status === "processing") {
+      this.voiceHint.textContent = "Procesando: control de voz y melodía disponibles al terminar";
+      return;
+    }
+    const info = await api.get<SystemInfo>("/api/system").catch(() => null);
+    if (!info?.processing_available) {
+      this.voiceHint.textContent =
+        "Sin control de voz ni melodía: el procesado no está instalado («uv sync» y reinicia el servidor)";
+      return;
+    }
+    this.voiceHint.replaceChildren(
+      "Esta canción no está procesada (sin control de voz ni melodía). ",
+      h(
+        "button",
+        {
+          class: "secondary small",
+          onclick: async (e: Event) => {
+            (e.currentTarget as HTMLButtonElement).disabled = true;
+            await api.post<Song>(`/api/songs/${this.song.id}/process`);
+            this.voiceHint.textContent = "Procesando: control de voz y melodía disponibles al terminar";
+          },
+        },
+        "Procesar ahora",
+      ),
     );
   }
 
@@ -160,6 +204,7 @@ export class PlayScreen {
     if (this.song.has_melody) {
       this.lanes.setMelody(await api.get<Melody>(`/api/songs/${this.song.id}/melody`).catch(() => null));
     }
+    void this.explainMissingProcessing();
 
     try {
       this.playback = await this.createPlayback();

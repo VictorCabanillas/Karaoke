@@ -54,8 +54,10 @@ npm install      # dependencias del frontend
 Separar la voz (Demucs), sacar la melodía de referencia (CREPE) y alinear/transcribir la letra (Whisper) necesita
 dependencias pesadas (PyTorch, varios GB):
 
+Se instalan con `uv sync` (vienen incluidas por defecto). Si no las quieres:
+
 ```sh
-uv sync --extra processing
+uv sync --no-group processing
 ```
 
 En Windows y Linux se instala PyTorch con CUDA (funciona también sin GPU). La primera vez que se procesa una canción
