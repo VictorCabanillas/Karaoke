@@ -33,7 +33,7 @@ TS_ALIASES = (
     "ServerToHost",
 )
 
-LyricsSource = Literal["lrclib_synced", "lrclib_aligned", "whisper", "lrclib_lines_only"]
+LyricsSource = Literal["lrclib_synced", "lrclib_aligned", "whisper", "lrclib_lines_only", "manual"]
 
 
 class Word(Model):
@@ -98,6 +98,14 @@ class SongPatch(InputModel):
     artist: str | None = None
     album: str | None = None
     offset_ms: int | None = Field(default=None, ge=-2000, le=2000)
+
+
+class LyricsText(InputModel):
+    """Lyrics pasted as plain text (one line per line)."""
+
+    text: str = Field(min_length=1, max_length=50_000)
+    # Align the text with the vocals (needs the processing extras and an audio file).
+    align: bool = True
 
 
 class ChooseLyrics(InputModel):

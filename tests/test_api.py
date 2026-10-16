@@ -66,3 +66,43 @@ def test_upload_is_normalized_to_mp3_with_ffmpeg(client):
     audio = client.get(f"/api/songs/{song['id']}/audio/original")
     assert audio.status_code == 200
     assert audio.content[:3] == b"ID3" or audio.content[:2] == b"\xff\xfb"
+
+
+def lyrics_payload(lines):
+    return {
+        "source": "lrclib_synced",
+        "synced": True,
+        "lines": [
+            {
+                "start_ms": s,
+                "end_ms": e,
+                "words": [{"text": t, "start_ms": s, "end_ms": e, "estimated": True} for t in text.split()],
+            }
+            for s, e, text in lines
+        ],
+    }
+
+
+def test_save_edited_lyrics(client):
+    song = upload(client).json()
+    r = client.put(f"/api/songs/{song['id']}/lyrics", json=lyrics_payload([(1000, 2000, "hola mundo"), (2500, 3000, "adios")]))
+    assert r.status_code == 200, r.text
+    assert r.json()["lyrics_source"] == "manual"
+    saved = client.get(f"/api/songs/{song['id']}/lyrics").json()
+    assert saved["source"] == "manual" and [l["start_ms"] for l in saved["lines"]] == [1000, 2500]
+
+
+def test_edited_lyrics_must_be_in_order_and_not_empty(client):
+    song = upload(client).json()
+    bad = lyrics_payload([(3000, 4000, "uno"), (1000, 2000, "dos")])
+    assert client.put(f"/api/songs/{song['id']}/lyrics", json=bad).status_code == 422
+    empty = lyrics_payload([(0, 100, " ")])
+    assert client.put(f"/api/songs/{song['id']}/lyrics", json=empty).status_code == 422
+
+
+def test_paste_plain_lyrics(client):
+    song = upload(client, name="Otro - Desconocida.wav").json()
+    r = client.post(f"/api/songs/{song['id']}/lyrics/text", json={"text": "primera linea\n\nsegunda linea", "align": False})
+    assert r.json()["lyrics_source"] == "lrclib_lines_only" and r.json()["status"] == "lyrics_ready"
+    lyrics = client.get(f"/api/songs/{song['id']}/lyrics").json()
+    assert not lyrics["synced"] and len(lyrics["lines"]) == 2

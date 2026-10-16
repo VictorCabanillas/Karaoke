@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from processing import audio as audio_tools
 from processing import device as device_mod
+from processing.lrc import plain_lyrics
 from processing.lrclib import LrclibClient, find_lyrics, record_to_lyrics, to_candidate
 from processing.metadata import read_metadata
 from processing.queue import Pipeline, ProcessingQueue
@@ -29,6 +30,7 @@ from server.models import (
     ChooseLyrics,
     LrclibCandidate,
     Lyrics,
+    LyricsText,
     Melody,
     PlaybackState,
     RoomMsg,
@@ -260,6 +262,37 @@ def create_app(
             raise HTTPException(404, "Letra no encontrada en LRCLIB")
         lyrics = record_to_lyrics(record, song.duration_s)
         return library(request).save_lyrics(song_id, lyrics, instrumental=bool(record.get("instrumental"))) or song
+
+    @app.put("/api/songs/{song_id}/lyrics")
+    def save_edited_lyrics(request: Request, song_id: str, lyrics: Lyrics) -> Song:
+        """Lyrics edited by hand in the editor."""
+        song = get_song(request, song_id)
+        lines = [line for line in lyrics.lines if any(w.text.strip() for w in line.words)]
+        if not lines:
+            raise HTTPException(422, "La letra está vacía")
+        if lyrics.synced:
+            for i, line in enumerate(lines):
+                if line.end_ms < line.start_ms or (i and line.start_ms < lines[i - 1].start_ms):
+                    raise HTTPException(422, f"Los tiempos de la línea {i + 1} no van en orden")
+                for w in line.words:
+                    w.start_ms = min(max(w.start_ms, line.start_ms), line.end_ms)
+                    w.end_ms = min(max(w.end_ms, w.start_ms), line.end_ms)
+            edited = Lyrics(source="manual", synced=True, lines=lines)
+        else:
+            edited = Lyrics(source="lrclib_lines_only", synced=False, lines=lines)
+        return library(request).save_lyrics(song_id, edited, instrumental=song.instrumental) or song
+
+    @app.post("/api/songs/{song_id}/lyrics/text")
+    def paste_lyrics(request: Request, song_id: str, body: LyricsText) -> Song:
+        """Plain lyrics pasted by the user; aligned with the vocals when possible."""
+        song = get_song(request, song_id)
+        lyrics = plain_lyrics(body.text)
+        if not lyrics.lines:
+            raise HTTPException(422, "La letra está vacía")
+        song = library(request).save_lyrics(song_id, lyrics, instrumental=False) or song
+        if body.align and song.origin == "file" and device_mod.processing_available():
+            song = request.app.state.queue.enqueue(song_id) or song
+        return song
 
     # --- Spotify ------------------------------------------------------------
 

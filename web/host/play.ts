@@ -86,6 +86,11 @@ export class PlayScreen {
       h("button", { class: "secondary", onclick: () => this.onExit() }, "← Biblioteca"),
       h("div", { class: "title" }, h("strong", null, song.title), h("span", null, song.artist)),
       h("span", { class: `badge mode ${mode}` }, mode === "competition" ? "Competición" : "Karaoke libre"),
+      h(
+        "button",
+        { class: "secondary small", title: "Corregir la letra", onclick: () => (location.hash = `#/edit/${song.id}`) },
+        "✎ Letra",
+      ),
       this.finishButton,
     );
     this.finishButton.addEventListener("click", () => this.finishGame());

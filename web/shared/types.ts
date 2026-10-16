@@ -9,7 +9,7 @@ export type GameMode = "free" | "competition";
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "LyricsSource".
  */
-export type LyricsSource = "lrclib_synced" | "lrclib_aligned" | "whisper" | "lrclib_lines_only";
+export type LyricsSource = "lrclib_synced" | "lrclib_aligned" | "whisper" | "lrclib_lines_only" | "manual";
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema
  * via the `definition` "SongOrigin".
@@ -157,6 +157,16 @@ export interface Lyrics {
   source: LyricsSource;
   synced: boolean;
   lines: Line[];
+}
+/**
+ * Lyrics pasted as plain text (one line per line).
+ *
+ * This interface was referenced by `KaraokeTypes`'s JSON-Schema
+ * via the `definition` "LyricsText".
+ */
+export interface LyricsText {
+  text: string;
+  align?: boolean;
 }
 /**
  * Reference pitch of the vocals: one MIDI value (or null = not singing) every hop_ms.

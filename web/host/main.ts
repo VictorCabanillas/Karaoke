@@ -4,6 +4,7 @@ import { api } from "../shared/api";
 import { $, h } from "../shared/dom";
 import type { Song } from "../shared/types";
 import { LibraryView } from "./library";
+import { LyricsEditor } from "./lyrics-editor";
 import { PlayScreen } from "./play";
 import { RoomPanel } from "./room-panel";
 
@@ -12,16 +13,20 @@ const library = new LibraryView(
   (song, mode) => (location.hash = `#/${mode === "competition" ? "compete" : "play"}/${song.id}`),
 );
 const roomPanel = new RoomPanel();
-let screen: PlayScreen | null = null;
+let screen: PlayScreen | LyricsEditor | null = null;
 
 async function route(): Promise<void> {
   screen?.dispose();
   screen = null;
-  const match = location.hash.match(/^#\/(play|compete)\/(\w+)/);
+  const match = location.hash.match(/^#\/(play|compete|edit)\/(\w+)/);
   if (match) {
     try {
       const song = await api.get<Song>(`/api/songs/${match[2]}`);
-      screen = new PlayScreen(song, () => (location.hash = "#/"), match[1] === "compete" ? "competition" : "free");
+      const back = () => (location.hash = "#/");
+      screen =
+        match[1] === "edit"
+          ? new LyricsEditor(song, back)
+          : new PlayScreen(song, back, match[1] === "compete" ? "competition" : "free");
       app.replaceChildren(screen.el);
       await screen.start();
     } catch (err) {

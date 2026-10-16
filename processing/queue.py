@@ -166,8 +166,9 @@ class ProcessingQueue:
             self.pipeline.separate(audio, folder, device, self._step_reporter(song_id, STEP_SEPARATE))
         self._set(song_id, has_stems=1)
 
-        melody = self.pipeline.melody(vocals, device, self._step_reporter(song_id, STEP_MELODY))
-        lib.save_json(song_id, MELODY_FILE, melody)
+        if lib.load_json(song_id, MELODY_FILE) is None:
+            melody = self.pipeline.melody(vocals, device, self._step_reporter(song_id, STEP_MELODY))
+            lib.save_json(song_id, MELODY_FILE, melody)
         self._set(song_id, has_melody=1)
 
         song = lib.get(song_id)

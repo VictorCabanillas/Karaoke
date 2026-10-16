@@ -140,3 +140,18 @@ def test_reprocessing_transcribes_again_and_passes_the_mix(lib, tmp_path):
     pipeline.asr = [AsrWord("nueva", 0, 300)]
     run(lib, pipeline, song_id)
     assert lib.load_lyrics(song_id).lines[0].words[0].text == "nueva"
+
+
+def test_pasted_plain_lyrics_are_aligned_and_melody_is_reused(lib, tmp_path):
+    from processing.lrc import plain_lyrics
+
+    song_id = add_song(lib, tmp_path)
+    pipeline = FakePipeline([AsrWord("hola", 500, 900), AsrWord("mundo", 900, 1400)])
+    run(lib, pipeline, song_id)
+    lib.save_json(song_id, "melody.json", {"hop_ms": 10, "midi": [61.0]})
+    lib.save_lyrics(song_id, plain_lyrics("hola mundo"))
+    pipeline.fail = "melody"  # the melody must not be computed again
+    run(lib, pipeline, song_id)
+    lyrics = lib.load_lyrics(song_id)
+    assert lib.get(song_id).status == "processed"
+    assert lyrics.source == "lrclib_aligned" and lyrics.lines[0].start_ms == 500

@@ -18,6 +18,7 @@ export const LYRICS_LABELS: Record<LyricsSource, string> = {
   lrclib_aligned: "letra alineada con el audio",
   whisper: "letra transcrita automáticamente",
   lrclib_lines_only: "letra sin sincronizar",
+  manual: "letra editada a mano",
 };
 
 export function canCompete(song: Song): boolean {
@@ -170,9 +171,9 @@ export class LibraryView {
             "button",
             {
               class: "secondary",
-              title: "Vuelve a calcular la melodía y la letra (las pistas separadas se reutilizan)",
+              title: "Vuelve a calcular la letra a partir de la voz",
               onclick: () => {
-                if (confirm(`¿Volver a procesar «${song.title}»? Se recalculan la melodía y la letra.`)) {
+                if (confirm(`¿Volver a procesar «${song.title}»? Se recalcula la letra a partir de la voz.`)) {
                   void this.enqueue(song);
                 }
               },
@@ -191,6 +192,7 @@ export class LibraryView {
         },
         song.lyrics_source ? "Cambiar letra" : "Buscar letra",
       ),
+      h("button", { class: "secondary", onclick: () => (location.hash = `#/edit/${song.id}`) }, "Editar letra"),
       h(
         "button",
         {

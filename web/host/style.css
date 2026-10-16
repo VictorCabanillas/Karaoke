@@ -551,3 +551,91 @@ button.link {
   font-size: 0.75rem;
   font-weight: normal;
 }
+
+/* --- lyrics editor ------------------------------------------------------ */
+
+body:has(.editor) #app {
+  max-width: 1000px;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.editor .play-header > button:nth-of-type(2) {
+  margin-left: auto;
+}
+
+.editor-controls {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.edit-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-bottom: 40vh;
+}
+
+.edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 8px;
+  border: 2px solid transparent;
+}
+
+.edit-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.edit-row.playing {
+  background: rgb(255 79 154 / 0.12);
+}
+
+.edit-row.cursor {
+  border-color: var(--accent-2);
+}
+
+.edit-row.error {
+  border-color: var(--danger);
+}
+
+.time-button {
+  min-width: 5.5rem;
+  padding: 0.3em 0.6em;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+button.icon.danger {
+  color: var(--danger);
+}
+
+.edit-message {
+  min-height: 1.2em;
+}
+
+dialog.paste textarea {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: var(--surface-2);
+  border: 1px solid #3a3452;
+  border-radius: 8px;
+  padding: 0.6rem;
+}
+
+button.small {
+  padding: 0.3em 0.8em;
+  font-size: 0.85rem;
+}
