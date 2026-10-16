@@ -107,6 +107,13 @@ function Install-Tool([string]$Command, [string]$WingetId, [string]$Label, [stri
 try {
     if ($DryRun) { Write-Warn "Modo prueba (-DryRun): no se instala ni se cambia nada." }
 
+    # PyTorch has very deep paths: past Windows' 260-character limit the install fails halfway.
+    $longPaths = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -ErrorAction SilentlyContinue).LongPathsEnabled
+    if ($PSScriptRoot.Length -gt 60 -and $longPaths -ne 1) {
+        Write-Warn "La carpeta del karaoke está en una ruta muy larga ($($PSScriptRoot.Length) caracteres)."
+        Write-Warn "Si la instalación falla con errores de archivos, muévela a una ruta corta como C:\Karaoke y repite."
+    }
+
     # The app downloads its models later: remember which caches did not exist before the first setup.
     if ((Get-State) -notcontains "caches-recorded") {
         foreach ($dir in Get-CacheDirs) {
@@ -147,7 +154,8 @@ try {
     }
 
     Write-Step "Listo"
-    Write-Ok "Arranca el karaoke con:  uv run python -m server"
+    Write-Ok "Arranca el karaoke con doble clic en start.cmd (o: uv run python -m server)"
+    Write-Ok "Si algo falla: start.cmd --check"
     if (-not $NoCerts) {
         Write-Ok "Abre https://127.0.0.1:8000/ en el portátil."
         if (-not $DryRun) {

@@ -17,8 +17,27 @@ Opciones:
 | `-NoCerts` | `--no-certs` | Sin HTTPS (los móviles no podrán usar el micrófono) |
 | `-DryRun` | `--dry-run` | Solo muestra lo que haría |
 
-Después: `uv run python -m server` y abre `https://127.0.0.1:8000/`. Las secciones siguientes explican cada paso por
+Después: doble clic en `start.cmd` (o `uv run python -m server`) y abre `https://127.0.0.1:8000/`. Las secciones siguientes explican cada paso por
 si prefieres hacerlo a mano.
+
+### Instalar en otro ordenador (Windows)
+
+1. **Consigue el código.** En GitHub: *Code → Download ZIP* (si el repositorio es privado, da acceso a tu amigo o
+   pásale un ZIP hecho con `git archive --format zip -o karaoke.zip HEAD`). Descomprímelo en una **ruta corta**, por
+   ejemplo `C:\Karaoke` (PyTorch tiene rutas muy largas y Windows limita a 260 caracteres).
+2. **Doble clic en `setup.cmd`.** Necesita internet y tarda un rato (descarga varios GB con el procesado). Windows
+   pedirá confirmar las instalaciones y la autoridad de certificados de mkcert. Sin GPU NVIDIA, o con poco espacio,
+   usa `setup.cmd -NoProcessing` (el karaoke funciona igual, pero sin separar la voz ni puntuar la afinación).
+3. **Doble clic en `start.cmd`.** Arranca el servidor y abre la pantalla principal. La primera vez **Windows
+   preguntará por el firewall: pulsa «Permitir acceso»**. La Wi-Fi debe estar como red *Privada* (Configuración →
+   Red e Internet → la Wi-Fi → Tipo de perfil de red); si está como *Pública*, Windows puede bloquear a los móviles.
+4. **Si algo no va: `start.cmd --check`.** Revisa página compilada, certificado (incluida la IP actual), procesado,
+   ffmpeg, puerto, red y firewall, y dice cómo arreglar cada cosa.
+5. Los móviles, en la misma Wi-Fi, escanean el QR y aceptan el aviso del certificado (o instalan la CA, ver arriba).
+
+Antes de la quedada conviene procesar las canciones (sin GPU tarda varios minutos cada una) y probar con un móvil.
+Si el portátil cambia de IP (otra red, otro día), `start.cmd` avisa: vuelve a ejecutar
+`uv run python scripts/make_certs.py`.
 
 ### Desinstalar
 
