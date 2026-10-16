@@ -108,7 +108,7 @@ def test_plan_clips_cuts_at_pauses():
 
 
 def test_loops_and_symbol_only_words_are_rejected():
-    loop = [w(t, i * 300, i * 300 + 250) for i, t in enumerate(("bam " * 30).split())]
+    loop = [w(t, i * 300, i * 300 + 250) for i, t in enumerate(("bam " * 60).split())]
     assert segment_score(loop) is None
     assert segment_score([w("¡¡¡¡¡¡¡¡", 0, 500)]) is None
 

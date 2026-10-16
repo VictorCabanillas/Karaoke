@@ -79,6 +79,13 @@ def fake_lrclib() -> FakeLrclib:
     return FakeLrclib()
 
 
+@pytest.fixture(autouse=True)
+def no_ffmpeg(request, monkeypatch):
+    """Tests behave the same with or without ffmpeg installed (opt out with @pytest.mark.ffmpeg)."""
+    if "ffmpeg" not in request.keywords:
+        monkeypatch.setattr("processing.audio.ffmpeg_path", lambda: None)
+
+
 @pytest.fixture
 def client(settings, fake_lrclib):
     app = create_app(settings, lrclib=fake_lrclib)

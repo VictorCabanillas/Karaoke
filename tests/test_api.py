@@ -1,3 +1,7 @@
+import shutil
+
+import pytest
+
 from tests.conftest import FakeLrclib, make_wav
 
 
@@ -53,3 +57,12 @@ def test_delete(client):
     song = upload(client).json()
     assert client.delete(f"/api/songs/{song['id']}").status_code == 204
     assert client.get(f"/api/songs/{song['id']}").status_code == 404
+
+
+@pytest.mark.ffmpeg
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+def test_upload_is_normalized_to_mp3_with_ffmpeg(client):
+    song = upload(client).json()
+    audio = client.get(f"/api/songs/{song['id']}/audio/original")
+    assert audio.status_code == 200
+    assert audio.content[:3] == b"ID3" or audio.content[:2] == b"\xff\xfb"

@@ -40,8 +40,9 @@ CLIP_JOIN_GAP_MS = 2_000  # pauses shorter than this stay inside a clip
 CLIP_PAD_MS = 500
 ACTIVITY_HOP_MS = 100
 ACTIVITY_RANGE_DB = 30.0
-# Text that compresses this well is a decoding loop. Higher than Whisper's own 2.4: songs repeat a lot.
-MAX_COMPRESSION_RATIO = 4.0
+# Text that compresses this well is a decoding loop. Much higher than Whisper's own 2.4: a chorus sung
+# seven times already reaches ~5. Invented loops are caught by the vocal-activity check instead.
+MAX_COMPRESSION_RATIO = 10.0
 # After the first round, voiced stretches still without words for this long get a clip of their own.
 RETRY_MIN_GAP_MS = 3_000
 # Segments from other attempts fill a clip's gaps if they overlap accepted words by less than this.
@@ -462,7 +463,14 @@ def transcribe_words(
     vocals, _ = librosa.load(str(vocals_path), sr=SAMPLE_RATE, mono=True)
     mix = librosa.load(str(mix_path), sr=SAMPLE_RATE, mono=True)[0] if mix_path else None
     language = _language(model, vocals)
-    clips = plan_clips(vocal_activity(vocals, SAMPLE_RATE))
+    activity = vocal_activity(vocals, SAMPLE_RATE)
+    clips = plan_clips(activity)
+
+    def voiced(w: AsrWord) -> bool:
+        """Is there any voice in the stem under this word? Invented text often lands on silence."""
+        first = max(0, w.start_ms // ACTIVITY_HOP_MS - 2)
+        return any(activity[first : w.end_ms // ACTIVITY_HOP_MS + 3])
+
     greedy_modes = (True, False) if device == "cuda" else (True,)
     attempts = [(src, greedy) for src in (vocals, mix) if src is not None for greedy in greedy_modes]
 
@@ -478,6 +486,7 @@ def transcribe_words(
                     for w in segment
                     if has_letters(w.text) and a - CLIP_PAD_MS <= w.start_ms + lo < b + CLIP_PAD_MS
                 ]
+                kept = [w for w in kept if voiced(w)]
                 if kept and segment_score(kept) is not None:
                     kept[0].starts_segment = True
                     candidate.append(kept)
@@ -491,7 +500,6 @@ def transcribe_words(
 
     # Whisper behaves differently depending on where a clip starts: give each stretch that is still
     # empty a clip of its own, and keep what it finds there.
-    activity = vocal_activity(vocals, SAMPLE_RATE)
     retries = [(t, min(b, t + CLIP_MAX_MS)) for a, b in uncovered_spans(words, activity) for t in range(a, b, CLIP_MAX_MS)]
     for done, (a, b) in enumerate(retries):
         report(0.8 + 0.2 * done / len(retries), "Revisando partes sin letra")
