@@ -691,3 +691,7 @@ button.small {
 .badge.status.downloading {
   color: var(--accent-2);
 }
+
+.song .info small.warn-text {
+  color: var(--warn);
+}

@@ -445,7 +445,7 @@ def transcribe_words(
     with Whisper's random temperature fallback (GPU only). Segments that fail the quality checks are
     dropped; a clip where nothing passes stays without words: lyrics are never invented.
     """
-    import librosa
+    from processing.audio import load as load_audio
 
     size = model_size or default_model_size(device)
     report(0.0, f"Cargando Whisper ({size})")
@@ -459,9 +459,9 @@ def transcribe_words(
         size = model_size or default_model_size("cpu")
         model = _load_model(size, "cpu")
 
-    # Decode ourselves (librosa) instead of letting faster-whisper use PyAV: fewer version clashes.
-    vocals, _ = librosa.load(str(vocals_path), sr=SAMPLE_RATE, mono=True)
-    mix = librosa.load(str(mix_path), sr=SAMPLE_RATE, mono=True)[0] if mix_path else None
+    # Decode ourselves (librosa, or ffmpeg for m4a/webm) instead of letting faster-whisper use PyAV: fewer version clashes.
+    vocals = load_audio(vocals_path, SAMPLE_RATE)
+    mix = load_audio(mix_path, SAMPLE_RATE) if mix_path else None
     language = _language(model, vocals)
     activity = vocal_activity(vocals, SAMPLE_RATE)
     clips = plan_clips(activity)

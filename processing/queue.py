@@ -154,7 +154,8 @@ class ProcessingQueue:
         return report
 
     def _process(self, song_id: str) -> None:
-        from processing.transcribe import align_lyrics, lyrics_from_words, lyrics_prompt
+        from processing.lyrics_check import verify_lyrics
+        from processing.transcribe import lyrics_from_words, lyrics_prompt
 
         lib = self.library
         device = self.pipeline.check()
@@ -184,11 +185,14 @@ class ProcessingQueue:
             asr = self.pipeline.words(vocals, device, report, lyrics_prompt(lyrics), audio)
             duration_ms = round(song.duration_s * 1000) if song else None
             if lyrics is not None:
-                aligned = align_lyrics(lyrics, asr, duration_ms)
-                if aligned is not None:
-                    lib.save_lyrics(song_id, aligned, instrumental=bool(song and song.instrumental))
+                # Check the lyrics against what is actually sung before calling the song ready.
+                checked = verify_lyrics(lyrics, asr, duration_ms)
+                if checked.note:
+                    log.info("Lyrics check for %s: %s", song_id, checked.note)
+                if checked.lyrics is not None:
+                    lib.save_lyrics(song_id, checked.lyrics, bool(song and song.instrumental), checked.note)
                 else:
-                    log.info("Alignment of %s not reliable; keeping line timing", song_id)
+                    self._set(song_id, lyrics_note=checked.note)
             elif asr:
                 lib.save_lyrics(song_id, lyrics_from_words(asr))
 

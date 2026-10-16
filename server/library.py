@@ -29,6 +29,7 @@ _COLUMNS = {
     "instrumental": "INTEGER NOT NULL DEFAULT 0",
     "has_stems": "INTEGER NOT NULL DEFAULT 0",
     "has_melody": "INTEGER NOT NULL DEFAULT 0",
+    "lyrics_note": "TEXT",
     "spotify_uri": "TEXT",
     "created_at": "REAL NOT NULL DEFAULT 0",
     "audio_file": "TEXT",
@@ -134,7 +135,10 @@ class Library:
 
     # --- files --------------------------------------------------------------
 
-    def save_lyrics(self, song_id: str, lyrics: Lyrics | None, instrumental: bool = False) -> Song | None:
+    def save_lyrics(
+        self, song_id: str, lyrics: Lyrics | None, instrumental: bool = False, note: str | None = None
+    ) -> Song | None:
+        """Store new lyrics. The check note belongs to the lyrics it was made for, so it is replaced too."""
         path = self.song_dir(song_id) / LYRICS_FILE
         path.parent.mkdir(parents=True, exist_ok=True)
         if lyrics is None:
@@ -152,6 +156,7 @@ class Library:
             lyrics_source=lyrics.source if lyrics else None,
             instrumental=int(instrumental),
             status=status,
+            lyrics_note=note,
         )
 
     def load_lyrics(self, song_id: str) -> Lyrics | None:

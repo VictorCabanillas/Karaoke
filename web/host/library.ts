@@ -262,6 +262,11 @@ export class LibraryView {
             .join(" · "),
         ),
         song.error ? h("small", { class: "error" }, song.error) : null,
+        song.lyrics_note
+          ? h("small", { class: song.lyrics_note.startsWith("⚠") ? "warn-text" : "hint" }, song.lyrics_note)
+          : song.lyrics_source && song.origin === "file" && song.status !== "processed"
+            ? h("small", { class: "hint" }, "La letra se comprobará con la voz al procesar la canción")
+            : null,
         progress,
       ),
       h("span", { class: `badge status ${song.status}` }, STATUS_LABELS[song.status]),

@@ -92,6 +92,8 @@ class Song(Model):
     spotify_uri: str | None = None
     created_at: float = 0.0
     has_audio: bool = True  # False while downloading or if the download failed
+    # Result of checking the lyrics against the vocals when processing (shown to the user); "⚠..." = problem.
+    lyrics_note: str | None = None
 
 
 class SongPatch(InputModel):

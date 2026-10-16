@@ -195,6 +195,10 @@ Al terminar:
 - Relleno palabra a palabra con los tiempos reales (Whisper alineado con la letra de LRCLIB).
 - Si LRCLIB no tenía letra, se transcribe del audio y se marca como «letra transcrita automáticamente».
 - Melodía de referencia para puntuar la afinación en el modo competición.
+- **Comprobación de la letra**: se compara con lo que realmente se canta. Si va adelantada o retrasada (otra
+  versión, una intro más larga...) se corrige sola; si los tiempos no encajan se recalculan a partir de la voz; y si
+  la letra no parece de esta canción, la biblioteca lo avisa para que la cambies o la edites. Para revisar canciones
+  procesadas antes de esto, pulsa **Reprocesar**.
 
 Todo se guarda en `data/songs/<id>/` y no se vuelve a calcular. En CPU cada canción tarda varios minutos: conviene
 dejarlas procesando antes de la quedada.

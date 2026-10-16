@@ -12,10 +12,11 @@ MODEL_NAME = "htdemucs"
 
 def load_audio(path: Path, sample_rate: int, channels: int):
     """Decode any audio file to a float32 array of shape (channels, samples)."""
-    import librosa
     import numpy as np
 
-    wav, _ = librosa.load(str(path), sr=sample_rate, mono=False)
+    from processing.audio import load
+
+    wav = load(path, sample_rate, mono=False)
     if wav.ndim == 1:
         wav = wav[None, :]
     if wav.shape[0] < channels:

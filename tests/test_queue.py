@@ -173,3 +173,21 @@ def test_jobs_interrupted_by_a_shutdown_resume_on_start(settings, monkeypatch):
     with TestClient(app):
         assert app.state.queue.wait_idle(5)
         assert app.state.library.get(song_id).status == "processed"
+
+
+def test_processing_fixes_shifted_lyrics_and_leaves_a_note(lib, tmp_path):
+    from tests.test_lyrics_check import lyrics as invented_lyrics, sung
+
+    song_id = add_song(lib, tmp_path)
+    lib.update(song_id, duration_s=60.0)
+    lib.save_lyrics(song_id, invented_lyrics())
+    run(lib, FakePipeline(sung(shift_ms=3500)), song_id)
+
+    song = lib.get(song_id)
+    assert song.status == "processed"
+    assert "3.5 s adelantada" in song.lyrics_note
+    assert abs(lib.load_lyrics(song_id).lines[0].start_ms - 13_500) < 100
+
+    # Choosing other lyrics clears the note of the old ones.
+    lib.save_lyrics(song_id, invented_lyrics())
+    assert lib.get(song_id).lyrics_note is None

@@ -381,6 +381,7 @@ export interface Song {
   spotify_uri: string | null;
   created_at: number;
   has_audio: boolean;
+  lyrics_note: string | null;
 }
 /**
  * This interface was referenced by `KaraokeTypes`'s JSON-Schema

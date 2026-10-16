@@ -193,7 +193,9 @@ export class PlayScreen {
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 404)) throw err;
     }
-    if (lyrics?.source === "whisper") {
+    if (this.song.lyrics_note) {
+      this.showBanner(this.song.lyrics_note.startsWith("⚠") ? this.song.lyrics_note : `✓ ${this.song.lyrics_note}`);
+    } else if (lyrics?.source === "whisper") {
       this.showBanner(`⚠ ${LYRICS_LABELS.whisper} (puede contener errores)`);
     } else if (!lyrics && !this.song.instrumental) {
       this.showBanner(
