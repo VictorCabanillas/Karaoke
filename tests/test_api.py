@@ -106,3 +106,14 @@ def test_paste_plain_lyrics(client):
     assert r.json()["lyrics_source"] == "lrclib_lines_only" and r.json()["status"] == "lyrics_ready"
     lyrics = client.get(f"/api/songs/{song['id']}/lyrics").json()
     assert not lyrics["synced"] and len(lyrics["lines"]) == 2
+
+
+def test_delete_lyrics(client):
+    song = upload(client).json()
+    client.put(f"/api/songs/{song['id']}/lyrics", json=lyrics_payload([(1000, 2000, "hola mundo")]))
+    r = client.delete(f"/api/songs/{song['id']}/lyrics")
+    assert r.status_code == 200
+    assert r.json()["lyrics_source"] is None and r.json()["status"] == "imported"
+    assert client.get(f"/api/songs/{song['id']}/lyrics").status_code == 404
+    # Without the processing installed it cannot transcribe them again.
+    assert client.delete(f"/api/songs/{song['id']}/lyrics", params={"retranscribe": True}).status_code == 400

@@ -210,3 +210,22 @@ def test_pipeline_reads_the_model_at_each_job():
     finally:
         transcribe.transcribe_words = original
     assert seen == ["small", "large-v3"]
+
+
+def test_deleted_lyrics_are_transcribed_again(settings, monkeypatch):
+    from processing import device as device_mod
+    from tests.conftest import FakeLrclib
+
+    monkeypatch.setattr(device_mod, "missing_modules", lambda: [])
+    pipeline = FakePipeline([AsrWord("transcrita", 0, 400)])
+    app = create_app(settings, lrclib=FakeLrclib(), pipeline=pipeline)
+    with TestClient(app) as client:
+        song = client.post("/api/songs", files={"file": ("Grupo Inventado - Cancion de Prueba.wav", make_wav(), "audio/wav")}).json()
+        lyrics = {"source": "manual", "synced": True, "lines": [{"start_ms": 0, "end_ms": 900, "words": [
+            {"text": "editada", "start_ms": 0, "end_ms": 900, "estimated": True}]}]}  # fmt: skip
+        client.put(f"/api/songs/{song['id']}/lyrics", json=lyrics)
+        r = client.delete(f"/api/songs/{song['id']}/lyrics", params={"retranscribe": True})
+        assert r.json()["status"] == "processing"
+        assert app.state.queue.wait_idle(5)
+        assert client.get(f"/api/songs/{song['id']}").json()["lyrics_source"] == "whisper"
+        assert client.get(f"/api/songs/{song['id']}/lyrics").json()["lines"][0]["words"][0]["text"] == "transcrita"

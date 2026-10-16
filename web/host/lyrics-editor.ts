@@ -3,6 +3,7 @@ import { h } from "../shared/dom";
 import type { Lyrics, Song, SystemInfo } from "../shared/types";
 import { AudioEngine } from "./audio";
 import { LYRICS_LABELS } from "./library";
+import { openDeleteLyrics } from "./lyrics-delete";
 import { buildLyrics, type EditRow, rowsFromLyrics, rowsFromText } from "./lyrics-edit";
 import type { Playback } from "./playback";
 import { SpotifyPlayback } from "./spotify-playback";
@@ -66,6 +67,7 @@ export class LyricsEditor {
         { class: "play-header" },
         h("button", { class: "secondary", onclick: () => this.exit() }, "← Biblioteca"),
         h("div", { class: "title" }, h("strong", null, `Editar letra · ${song.title}`), this.sourceLabel),
+        h("button", { class: "secondary", onclick: () => void this.deleteLyrics() }, "Borrar letra…"),
         h("button", { class: "secondary", onclick: () => this.openPaste() }, "Pegar letra completa…"),
         h("button", { onclick: () => void this.save() }, "Guardar"),
       ),
@@ -357,6 +359,22 @@ export class LyricsEditor {
     document.body.append(dialog);
     dialog.showModal();
     textarea.focus();
+  }
+
+  private async deleteLyrics(): Promise<void> {
+    const canTranscribe = !!this.info?.processing_available && this.song.origin === "file";
+    const song = await openDeleteLyrics(this.song, canTranscribe);
+    if (!song) return;
+    this.dirty = false;
+    if (song.status === "processing") {
+      alert("Letra borrada. Se está transcribiendo de nuevo: verás el progreso en la biblioteca.");
+      this.onExit();
+      return;
+    }
+    this.rows = rowsFromLyrics(null);
+    this.render();
+    this.sourceLabel.textContent = "sin letra todavía";
+    this.message.textContent = "Letra borrada. Puedes pegar otra con «Pegar letra completa» o escribirla aquí.";
   }
 
   private exit(): void {

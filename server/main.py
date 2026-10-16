@@ -347,6 +347,17 @@ def create_app(
         lyrics = record_to_lyrics(record, song.duration_s)
         return library(request).save_lyrics(song_id, lyrics, instrumental=bool(record.get("instrumental"))) or song
 
+    @app.delete("/api/songs/{song_id}/lyrics")
+    def delete_lyrics(request: Request, song_id: str, retranscribe: bool = False) -> Song:
+        """Forget the lyrics; with retranscribe, process the song again to transcribe them from the vocals."""
+        song = get_song(request, song_id)
+        song = library(request).save_lyrics(song_id, None, instrumental=False) or song
+        if retranscribe:
+            if song.origin != "file" or not device_mod.processing_available():
+                raise HTTPException(400, "Para transcribir la letra hace falta el procesado y un archivo de audio")
+            song = request.app.state.queue.enqueue(song_id) or song
+        return song
+
     @app.put("/api/songs/{song_id}/lyrics")
     def save_edited_lyrics(request: Request, song_id: str, lyrics: Lyrics) -> Song:
         """Lyrics edited by hand in the editor."""

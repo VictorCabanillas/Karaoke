@@ -2,6 +2,7 @@ import { api } from "../shared/api";
 import { formatTime, h } from "../shared/dom";
 import type { GameMode, LyricsSource, Song, SongStatus, SystemInfo } from "../shared/types";
 import { hostSocket } from "./connection";
+import { openDeleteLyrics } from "./lyrics-delete";
 import { openLyricsSearch } from "./lyrics-search";
 import { OnlinePanel } from "./online-panel";
 import { SpotifyPanel } from "./spotify-panel";
@@ -198,7 +199,11 @@ export class LibraryView {
               class: "secondary",
               title: "Vuelve a calcular la letra a partir de la voz",
               onclick: () => {
-                if (confirm(`¿Volver a procesar «${song.title}»? Se recalcula la letra a partir de la voz.`)) {
+                const keeps =
+                  song.lyrics_source === "manual"
+                    ? "\n\nTu letra editada a mano se conserva (solo se vuelve a sincronizar). Para sacarla de nuevo de la voz, usa «Borrar letra»."
+                    : "";
+                if (confirm(`¿Volver a procesar «${song.title}»? Se recalcula la letra a partir de la voz.${keeps}`)) {
                   void this.enqueue(song);
                 }
               },
@@ -218,6 +223,20 @@ export class LibraryView {
         song.lyrics_source ? "Cambiar letra" : "Buscar letra",
       ),
       h("button", { class: "secondary", onclick: () => (location.hash = `#/edit/${song.id}`) }, "Editar letra"),
+      song.lyrics_source || song.instrumental
+        ? h(
+            "button",
+            {
+              class: "secondary",
+              onclick: async () => {
+                const canTranscribe = !!this.info?.processing_available && song.origin === "file";
+                const updated = await openDeleteLyrics(song, canTranscribe);
+                if (updated) this.updateSong(updated);
+              },
+            },
+            "Borrar letra",
+          )
+        : null,
       remove,
     ];
   }
