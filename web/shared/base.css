@@ -130,3 +130,39 @@ dialog.modal::backdrop {
 .small {
   font-size: 0.85rem;
 }
+
+/* --- autocomplete ------------------------------------------------------- */
+
+.autocomplete {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.autocomplete > input {
+  flex: 1;
+}
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0.3rem 0;
+  list-style: none;
+  background: var(--surface-2);
+  border: 1px solid #3a3452;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+.suggestions li {
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+.suggestions li.active {
+  background: rgb(79 216 255 / 0.15);
+}

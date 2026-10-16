@@ -86,6 +86,7 @@ def create_app(
     pipeline: Pipeline | None = None,
     spotify: SpotifyService | None = None,
     online_source: downloads_mod.YouTubeSource | None = None,
+    suggest: downloads_mod.SuggestClient | None = None,
 ) -> FastAPI:
     config = config or default_settings
 
@@ -116,10 +117,12 @@ def create_app(
             app.state.library, app.state.hub, import_audio, online_source
         )
         app.state.downloads.bind_loop()
+        app.state.suggest = suggest or downloads_mod.SuggestClient()
         app.state.room.start()
         yield
         busy = app.state.queue.busy or app.state.downloads.busy
         app.state.downloads.shutdown()
+        await app.state.suggest.close()
         await app.state.room.stop()
         app.state.queue.stop(timeout=0 if busy else 5)
         app.state.library.close()
@@ -441,6 +444,10 @@ def create_app(
         except Exception as exc:  # network errors, YouTube changes...
             log.warning("Online search failed: %s", exc)
             raise HTTPException(502, f"La búsqueda falló: {exc}") from exc
+
+    @app.get("/api/online/suggest")
+    async def online_suggest(request: Request, q: str = "") -> list[str]:
+        return await request.app.state.suggest.suggest(q)
 
     @app.post("/api/online/download")
     def online_download(request: Request, body: DownloadRequest) -> Song:

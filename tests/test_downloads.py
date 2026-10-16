@@ -103,3 +103,38 @@ def test_downloads_unavailable_without_yt_dlp(client, monkeypatch):
     r = client.get("/api/online/search", params={"q": "x"})
     assert r.status_code == 503 and "yt-dlp" in r.json()["detail"]
     assert client.post("/api/online/download", json={"video_id": "bad"}).status_code in (422, 503)
+
+
+@pytest.mark.anyio
+async def test_suggestions_are_parsed_cached_and_never_fail():
+    import httpx
+
+    from server.downloads import SuggestClient
+
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.params["q"])
+        if request.url.params["q"] == "roto":
+            return httpx.Response(500)
+        return httpx.Response(200, json=["la lo", ["la lola", "la lola letra", "la lola", " "], [], {}])
+
+    client = SuggestClient(transport=httpx.MockTransport(handler))
+    assert await client.suggest("La  Lo") == ["la lola", "la lola letra"]
+    assert await client.suggest("la lo") == ["la lola", "la lola letra"]  # cached
+    assert calls == ["la lo"]
+    assert await client.suggest("roto") == []
+    assert await client.suggest("x") == []  # too short: no request
+    await client.close()
+
+
+def test_suggest_endpoint(settings):
+    class Fake:
+        async def suggest(self, q):
+            return [f"{q} letra"]
+
+        async def close(self):
+            pass
+
+    with TestClient(create_app(settings, lrclib=FakeLrclib(), suggest=Fake())) as client:
+        assert client.get("/api/online/suggest", params={"q": "la lola"}).json() == ["la lola letra"]

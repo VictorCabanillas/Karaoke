@@ -1,4 +1,5 @@
 import { api } from "../shared/api";
+import { attachAutocomplete } from "../shared/autocomplete";
 import { formatTime, h } from "../shared/dom";
 import type { OnlineTrack, Song } from "../shared/types";
 
@@ -26,7 +27,7 @@ export class OnlinePanel {
       );
       return;
     }
-    const input = h("input", { type: "search", placeholder: "Artista y canción" });
+    const input = h("input", { type: "search", placeholder: "Artista y canción", spellcheck: false });
     this.body.replaceChildren(
       h(
         "form",
@@ -47,6 +48,10 @@ export class OnlinePanel {
         "Busca en YouTube y descarga solo el audio. Úsalo para uso privado y con música que tengas derecho a usar.",
       ),
     );
+    attachAutocomplete(input, {
+      fetch: (q) => api.get<string[]>(`/api/online/suggest?q=${encodeURIComponent(q)}`),
+      onPick: (value) => void this.search(value),
+    });
   }
 
   private async search(q: string): Promise<void> {

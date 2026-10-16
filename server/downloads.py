@@ -11,10 +11,13 @@ import importlib.util
 import logging
 import re
 import shutil
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
+
+import httpx
 
 from server.library import Library
 from server.models import OnlineTrack, Song, SongUpdatedMsg
@@ -33,6 +36,43 @@ _NOISE = re.compile(
     re.IGNORECASE,
 )
 _CHANNEL_SUFFIX = re.compile(r"\s*(?:-\s*Topic|VEVO|Official|Oficial)$", re.IGNORECASE)
+
+
+SUGGEST_URL = "https://suggestqueries.google.com/complete/search"
+SUGGEST_LIMIT = 8
+SUGGEST_CACHE = 200
+
+
+class SuggestClient:
+    """YouTube's search-as-you-type suggestions. Best effort: any failure gives no suggestions."""
+
+    def __init__(self, transport: httpx.AsyncBaseTransport | None = None):
+        self._client = httpx.AsyncClient(timeout=3.0, transport=transport)
+        self._cache: OrderedDict[str, list[str]] = OrderedDict()
+
+    async def suggest(self, query: str) -> list[str]:
+        key = " ".join(query.lower().split())
+        if len(key) < 2:
+            return []
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        try:
+            r = await self._client.get(SUGGEST_URL, params={"client": "firefox", "ds": "yt", "hl": "es", "q": key})
+            r.raise_for_status()
+            data = r.json()
+            suggestions = [s for s in data[1] if isinstance(s, str)] if isinstance(data, list) and len(data) > 1 else []
+        except (httpx.HTTPError, ValueError) as exc:
+            log.info("Suggestions unavailable: %s", exc)
+            return []
+        result = list(dict.fromkeys(s.strip() for s in suggestions if s.strip()))[:SUGGEST_LIMIT]
+        self._cache[key] = result
+        if len(self._cache) > SUGGEST_CACHE:
+            self._cache.popitem(last=False)
+        return result
+
+    async def close(self) -> None:
+        await self._client.aclose()
 
 
 def available() -> bool:
