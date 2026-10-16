@@ -182,6 +182,13 @@ class ProcessingQueue:
             lyrics = None  # reprocessing: transcribe again instead of aligning the old transcription
         if not (song and song.instrumental and lyrics is None):
             report = self._step_reporter(song_id, STEP_WORDS)
+            if lyrics is not None:
+                # Whisper only listens to compare with the existing lyrics; they are not replaced.
+                step_report = report
+
+                def report(fraction: float, _label: str) -> None:
+                    step_report(fraction, "Comprobando la letra con la voz")
+
             asr = self.pipeline.words(vocals, device, report, lyrics_prompt(lyrics), audio)
             duration_ms = round(song.duration_s * 1000) if song else None
             if lyrics is not None:
