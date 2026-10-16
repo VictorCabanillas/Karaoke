@@ -179,9 +179,9 @@ def test_processing_fixes_shifted_lyrics_and_leaves_a_note(lib, tmp_path):
     from tests.test_lyrics_check import lyrics as invented_lyrics, sung
 
     song_id = add_song(lib, tmp_path)
-    lib.update(song_id, duration_s=60.0)
+    lib.update(song_id, duration_s=90.0)
     lib.save_lyrics(song_id, invented_lyrics())
-    updates = run(lib, FakePipeline(sung(shift_ms=3500)), song_id)
+    updates = run(lib, FakePipeline(sung(shift=lambda i: 3500)), song_id)
     labels = {u.progress_label for u in updates}
     assert "Comprobando la letra con la voz" in labels and "Transcribiendo la voz" not in labels
 
